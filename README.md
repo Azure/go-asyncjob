@@ -9,30 +9,30 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 	job := NewJob("sqlSummaryJob")
 	jobLib := &SqlSummaryJobLib{}
 
-    # connection
+	# connection
 	connTask, _ := AddStep(bCtx, job, "getConnection", jobLib.GetConnection, []string{})
-    
-    # query1
+
+	# query1
 	table1ParamTask := InputParam(job, "param_table1", "table1")
 	table1ClientTask, _ := StepAfterBoth(bCtx, job, "getTableClient1", connTask, table1ParamTask, jobLib.GetTableClient)
 	query1ParamTask := InputParam(job, "param_query1", "select x,y,z from table1")
 	qery1ResultTask, _ := StepAfterBoth(bCtx, job, "queryTable1", table1ClientTask, query1ParamTask, jobLib.ExecuteQuery)
 
-    # query2
+	# query2
 	table2ParamTask := InputParam(job, "param_table2", "table2")
 	table2ClientTask, _ := StepAfterBoth(bCtx, job, "getTableClient2", connTask, table2ParamTask, jobLib.GetTableClient)
 	query2ParamTask := InputParam(job, "param_query2", &sjb.Query2)
 	qery2ResultTask, _ := StepAfterBoth(bCtx, job, "queryTable2", table2ClientTask, query2ParamTask, jobLib.ExecuteQuery)
 
-    # summarize
+	# summarize
 	StepAfterBoth(bCtx, job, "summarize", qery1ResultTask, qery2ResultTask, jobLib.SummarizeQueryResult)
 
-    # visualize the job
-    dotGraph := job.Visualize()
+	# visualize the job
+	dotGraph := job.Visualize()
 	fmt.Println(dotGraph)
 
-    # execute job
-    job.Start(context.Background())
+	# execute job
+	job.Start(context.Background())
 	job.Wait(context.WithTimeout(context.Background(), 10*time.Second))
 ```
 
