@@ -1,33 +1,64 @@
-# Project
+# AsyncJob
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a sequential chain.
 
-As the maintainer of this project, please make a few updates:
+# Usage
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+### Build and run a asyncjob
+```golang
+	job := NewJob("sqlSummaryJob")
+	jobLib := &SqlSummaryJobLib{}
 
-## Contributing
+    # connection
+	connTask, _ := AddStep(bCtx, job, "getConnection", jobLib.GetConnection, []string{})
+    
+    # query1
+	table1ParamTask := InputParam(job, "param_table1", "table1")
+	table1ClientTask, _ := StepAfterBoth(bCtx, job, "getTableClient1", connTask, table1ParamTask, jobLib.GetTableClient)
+	query1ParamTask := InputParam(job, "param_query1", "select x,y,z from table1")
+	qery1ResultTask, _ := StepAfterBoth(bCtx, job, "queryTable1", table1ClientTask, query1ParamTask, jobLib.ExecuteQuery)
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+    # query2
+	table2ParamTask := InputParam(job, "param_table2", "table2")
+	table2ClientTask, _ := StepAfterBoth(bCtx, job, "getTableClient2", connTask, table2ParamTask, jobLib.GetTableClient)
+	query2ParamTask := InputParam(job, "param_query2", &sjb.Query2)
+	qery2ResultTask, _ := StepAfterBoth(bCtx, job, "queryTable2", table2ClientTask, query2ParamTask, jobLib.ExecuteQuery)
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+    # summarize
+	StepAfterBoth(bCtx, job, "summarize", qery1ResultTask, qery2ResultTask, jobLib.SummarizeQueryResult)
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+    # visualize the job
+    dotGraph := job.Visualize()
+	fmt.Println(dotGraph)
 
-## Trademarks
+    # execute job
+    job.Start(context.Background())
+	job.Wait(context.WithTimeout(context.Background(), 10*time.Second))
+```
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+### visualize of a job
+this visualize depend on github.com/hashicorp/terraform/dag, with some limitation, may need some upstream contribution.
+```
+digraph {
+	compound = "true"
+	newrank = "true"
+	subgraph "root" {
+		"[root] [Start]" -> "[root] getConnection"
+		"[root] [Start]" -> "[root] param_query1"
+		"[root] [Start]" -> "[root] param_query2"
+		"[root] [Start]" -> "[root] param_table1"
+		"[root] [Start]" -> "[root] param_table2"
+		"[root] getConnection" -> "[root] getTableClient1"
+		"[root] getConnection" -> "[root] getTableClient2"
+		"[root] getTableClient1" -> "[root] queryTable1"
+		"[root] getTableClient2" -> "[root] queryTable2"
+		"[root] param_query1" -> "[root] queryTable1"
+		"[root] param_query2" -> "[root] queryTable2"
+		"[root] param_table1" -> "[root] getTableClient1"
+		"[root] param_table2" -> "[root] getTableClient2"
+		"[root] queryTable1" -> "[root] summarize"
+		"[root] queryTable2" -> "[root] summarize"
+	}
+}
+```
+![visualize job graph](media/graphviz.svg)
