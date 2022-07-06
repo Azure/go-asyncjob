@@ -10,6 +10,7 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 **Step** is a individual code block which can be executed and have inputs, output.
 - a step would be started once all it's dependency is finished.
 - output of a step can be feed into next step as input, type is checked by go generics.
+- step is wrapped in [AsyncTask](github.com/Azure/go-asynctask) with strongType info preserved
 
 # Usage
 
