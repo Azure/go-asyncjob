@@ -59,9 +59,14 @@ func NewJob(name string) *Job {
 	return j
 }
 
-func InputParam[T any](j *Job, stepName string, value *T) *StepInfo[T] {
+func InputParam[T any](bCtx context.Context, j *Job, stepName string, value *T) *StepInfo[T] {
 	step := newStepInfo[T](stepName, []string{j.rootJob.Name()})
-	step.task = asynctask.NewCompletedTask(value)
+
+	instrumentedFunc := func(ctx context.Context) (*T, error) {
+		j.rootJob.Wait(ctx)
+		return value, nil
+	}
+	step.task = asynctask.Start(bCtx, instrumentedFunc)
 
 	j.Steps[stepName] = step
 	j.registerStepInGraph(stepName, j.rootJob.Name())
