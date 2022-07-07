@@ -11,6 +11,7 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 - a step would be started once all it's dependency is finished.
 - output of a step can be feed into next step as input, type is checked by go generics.
 - step is wrapped in [AsyncTask](github.com/Azure/go-asynctask) with strongType info preserved
+- you can feed parameters as a step as well.
 
 # Usage
 
@@ -47,7 +48,11 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 ```
 
 ### visualize of a job
-this visualize depend on github.com/hashicorp/terraform/dag, with some limitation, may need some upstream contribution.
+this visualize depend on [terraform/dag](github.com/hashicorp/terraform/dag), with some limitation, may need some upstream tweaks:
+- able to customize node name
+- able to distinguash type of node (param, executionBlock)
+- able to show state of node (pending, running, completed, failed)
+
 ```
 digraph {
 	compound = "true"
