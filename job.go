@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Azure/go-asyncjob/graph"
 	"github.com/Azure/go-asynctask"
-	"github.com/hashicorp/terraform/dag"
 )
 
 type JobState string
@@ -22,7 +22,7 @@ type Job struct {
 	state    JobState
 	rootJob  *StepInfo[interface{}]
 	jobStart *sync.WaitGroup
-	stepsDag *dag.AcyclicGraph
+	stepsDag *graph.Graph[StepMeta]
 
 	// runtimeCtx is captured to separate build context and runtime context.
 	// golang not recommending to store context in the struct. I don't have better idea.
@@ -38,7 +38,7 @@ func NewJob(name string) *Job {
 
 		jobStart: &jobStart,
 		state:    JobStatePending,
-		stepsDag: &dag.AcyclicGraph{},
+		stepsDag: graph.NewGraph[StepMeta](),
 	}
 
 	j.rootJob = &StepInfo[interface{}]{
@@ -53,7 +53,7 @@ func NewJob(name string) *Job {
 	}
 
 	j.Steps[j.rootJob.GetName()] = j.rootJob
-	j.stepsDag.Add(j.rootJob.GetName())
+	j.stepsDag.AddNode(j.rootJob)
 
 	return j
 }
@@ -68,7 +68,7 @@ func InputParam[T any](bCtx context.Context, j *Job, stepName string, value *T) 
 	step.task = asynctask.Start(bCtx, instrumentedFunc)
 
 	j.Steps[stepName] = step
-	j.registerStepInGraph(stepName, j.rootJob.GetName())
+	j.registerStepInGraph(step, j.rootJob.GetName())
 
 	return step
 }
@@ -116,7 +116,7 @@ func AddStep[T any](bCtx context.Context, j *Job, stepName string, stepFunc asyn
 	step.task = asynctask.Start(bCtx, instrumentedFunc)
 
 	j.Steps[stepName] = step
-	j.registerStepInGraph(stepName, precedingStepNames...)
+	j.registerStepInGraph(step, precedingStepNames...)
 
 	return step, nil
 }
@@ -168,10 +168,7 @@ func StepAfter[T, S any](bCtx context.Context, j *Job, stepName string, parentSt
 	step.task = asynctask.ContinueWith(bCtx, parentStep.task, instrumentedFunc)
 
 	j.Steps[stepName] = step
-	j.registerStepInGraph(stepName, precedingStepNames...)
-	if err := j.stepsDag.Validate(); err != nil {
-		return nil, fmt.Errorf("cycle dependency detected: %s", err)
-	}
+	j.registerStepInGraph(step, precedingStepNames...)
 	return step, nil
 }
 
@@ -221,7 +218,7 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j *Job, stepName string, p
 	step.task = asynctask.AfterBoth(bCtx, parentStepT.task, parentStepS.task, instrumentedFunc)
 
 	j.Steps[stepName] = step
-	j.registerStepInGraph(stepName, precedingStepNames...)
+	j.registerStepInGraph(step, precedingStepNames...)
 
 	return step, nil
 }
@@ -246,21 +243,16 @@ func (j *Job) Wait(ctx context.Context) error {
 	return asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, tasks...)
 }
 
-func (j *Job) registerStepInGraph(stepName string, precedingStep ...string) error {
-	j.stepsDag.Add(stepName)
+func (j *Job) registerStepInGraph(step StepMeta, precedingStep ...string) error {
+	j.stepsDag.AddNode(step)
 	for _, precedingStepName := range precedingStep {
-		j.stepsDag.Connect(dag.BasicEdge(precedingStepName, stepName))
-		if err := j.stepsDag.Validate(); err != nil {
-			return fmt.Errorf("failed to add step %q depend on %q, likely a cycle dependency. %w", stepName, precedingStepName, err)
-		}
+		j.stepsDag.Connect(precedingStepName, step.GetName())
 	}
 
 	return nil
 }
 
 // Visualize return a DAG of the job execution graph
-func (j *Job) Visualize() string {
-	opts := &dag.DotOpts{MaxDepth: 42}
-	actual := j.stepsDag.Dot(opts)
-	return string(actual)
+func (j *Job) Visualize() (string, error) {
+	return j.stepsDag.ToDotGraph()
 }
