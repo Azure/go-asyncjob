@@ -48,10 +48,8 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 ```
 
 ### visualize of a job
-this visualize depend on [terraform/dag](github.com/hashicorp/terraform/dag), with some limitation, may need some upstream tweaks:
-- able to customize node name
-- able to distinguash type of node (param, executionBlock)
-- able to show state of node (pending, running, completed, failed)
+tried https://github.com/hashicorp/terraform/tree/main/internal/dag, which doesn't have own go module, but terraform go module have too much dependencies.
+baking a inhouse one.
 
 ```
 digraph {

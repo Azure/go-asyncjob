@@ -15,11 +15,14 @@ func TestSimpleJob(t *testing.T) {
 	}
 	jb := sb.BuildJob(context.Background())
 
-	dotGraph := jb.Visualize()
-	fmt.Println(dotGraph)
-
 	jb.Start(context.Background())
 	jb.Wait(context.Background())
+
+	dotGraph, err := jb.Visualize()
+	if err != nil {
+		t.FailNow()
+	}
+	fmt.Println(dotGraph)
 }
 
 var _ JobBuilder = &SqlJobBuilder{}
