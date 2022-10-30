@@ -17,12 +17,20 @@ func (ge GraphErrorCode) Error() string {
 
 type NodeConstrain interface {
 	// Name of the node, used as key in the graph, so should be unique.
-	GetName() string
+	DotSpec() DotNodeSpec
 }
 
 type Edge[NT NodeConstrain] struct {
 	From NT
 	To   NT
+}
+
+type DotNodeSpec struct {
+	ID      string
+	Name    string
+	Tooltip string
+	Shape   string
+	Style   string
 }
 
 type Graph[NT NodeConstrain] struct {
@@ -38,7 +46,7 @@ func NewGraph[NT NodeConstrain]() *Graph[NT] {
 }
 
 func (g *Graph[NT]) AddNode(n NT) error {
-	nodeKey := n.GetName()
+	nodeKey := n.DotSpec().ID
 	if _, ok := g.nodes[nodeKey]; ok {
 		return ErrDuplicateNode
 	}
@@ -67,7 +75,7 @@ func (g *Graph[NT]) ToDotGraph() (string, error) {
 	edges := make(map[string][]string)
 	for _, nodeEdges := range g.nodeEdges {
 		for _, edge := range nodeEdges {
-			edges[edge.From.GetName()] = append(edges[edge.From.GetName()], edge.To.GetName())
+			edges[edge.From.DotSpec().ID] = append(edges[edge.From.DotSpec().ID], edge.To.DotSpec().ID)
 		}
 	}
 
