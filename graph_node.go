@@ -2,6 +2,7 @@ package asyncjob
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Azure/go-asyncjob/graph"
 )
@@ -60,7 +61,7 @@ func (sn *stepNode) getTooltip() string {
 	executionData := sn.ExecutionData()
 
 	if state != StepStatePending && executionData != nil {
-		return fmt.Sprintf("Type: %s\\nName: %s\\nState: %s\\nStartAt: %s\\nDuration: %s", string(sn.getType()), sn.GetName(), state, executionData.StartTime, executionData.Duration)
+		return fmt.Sprintf("Type: %s\\nName: %s\\nState: %s\\nStartAt: %s\\nDuration: %s", string(sn.getType()), sn.GetName(), state, executionData.StartTime.Format(time.RFC3339Nano), executionData.Duration)
 	}
 
 	return fmt.Sprintf("Type: %s\\nName: %s", sn.getType(), sn.GetName())
@@ -77,13 +78,14 @@ func stepConn(snFrom, snTo *stepNode) *graph.DotEdgeSpec {
 	// update edge color, tooltip if NodeTo is started already.
 	if snTo.GetState() != StepStatePending {
 		executionData := snTo.ExecutionData()
-		edgeSpec.Tooltip = fmt.Sprintf("Time: %s", executionData.StartTime)
-		fromNodeState := snFrom.GetState()
-		if fromNodeState == StepStateCompleted {
-			edgeSpec.Color = "green"
-		} else if fromNodeState == StepStateFailed {
-			edgeSpec.Color = "red"
-		}
+		edgeSpec.Tooltip = fmt.Sprintf("Time: %s", executionData.StartTime.Format(time.RFC3339Nano))
+	}
+
+	fromNodeState := snFrom.GetState()
+	if fromNodeState == StepStateCompleted {
+		edgeSpec.Color = "green"
+	} else if fromNodeState == StepStateFailed {
+		edgeSpec.Color = "red"
 	}
 
 	return edgeSpec

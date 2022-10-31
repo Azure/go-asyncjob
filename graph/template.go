@@ -17,7 +17,7 @@ const digraphTemplateText = `digraph {
 {{ end }}        
 {{ range $edge := $.Edges}}		{{$edge.FromNodeID}} -> {{$edge.ToNodeID}} [style={{$edge.Style}} tooltip="{{$edge.Tooltip}}" color={{$edge.Color}}] 
 {{ end }}        
-  }
+	}
 }`
 
 /* ideal output
