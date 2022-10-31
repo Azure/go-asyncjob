@@ -111,9 +111,11 @@ func AddStep[T any](bCtx context.Context, j *Job, stepName string, stepFunc asyn
 	//     timeoutHandling (TODO)
 	instrumentedFunc := func(ctx context.Context) (*T, error) {
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
+			/* this only work on ExecuteAfter from input, asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
+			   we need to be consistent on how to set state of dependent step.
 			step.executionData.StartTime = time.Now()
 			step.state = StepStateFailed
-			step.executionData.Duration = 0
+			step.executionData.Duration = 0 */
 			return nil, err
 		}
 		step.executionData.StartTime = time.Now()
@@ -170,9 +172,11 @@ func StepAfter[T, S any](bCtx context.Context, j *Job, stepName string, parentSt
 	//     timeoutHandling (TODO)
 	instrumentedFunc := func(ctx context.Context, t *T) (*S, error) {
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
+			/* this only work on ExecuteAfter from input, asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
+			   we need to be consistent on how to set state of dependent step.
 			step.executionData.StartTime = time.Now()
 			step.state = StepStateFailed
-			step.executionData.Duration = 0
+			step.executionData.Duration = 0 */
 			return nil, err
 		}
 		step.executionData.StartTime = time.Now()
@@ -230,9 +234,11 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j *Job, stepName string, p
 	//     timeoutHandling (TODO)
 	instrumentedFunc := func(ctx context.Context, t *T, s *S) (*R, error) {
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
+			/* this only work on ExecuteAfter from input, asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
+			   we need to be consistent on how to set state of dependent step.
 			step.executionData.StartTime = time.Now()
 			step.state = StepStateFailed
-			step.executionData.Duration = 0
+			step.executionData.Duration = 0 */
 			return nil, err
 		}
 

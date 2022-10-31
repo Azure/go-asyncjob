@@ -34,9 +34,9 @@ func (sn *stepNode) getShape() string {
 	case stepTypeParam:
 		return "doublecircle"
 	case stepTypeTask:
-		return "ellipse"
-	default:
 		return "box"
+	default:
+		return "egg"
 	}
 }
 
