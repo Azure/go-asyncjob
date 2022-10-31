@@ -4,17 +4,6 @@ import (
 	"bytes"
 )
 
-type GraphErrorCode string
-
-const (
-	ErrDuplicateNode          GraphErrorCode = "node with same key already exists in this graph"
-	ErrConnectNotExistingNode GraphErrorCode = "node to connect does not exist in this graph"
-)
-
-func (ge GraphErrorCode) Error() string {
-	return string(ge)
-}
-
 // NodeConstrain is a constraint for a node in a graph
 type NodeConstrain interface {
 	DotSpec() *DotNodeSpec
@@ -28,6 +17,7 @@ type Edge[NT NodeConstrain] struct {
 	To   NT
 }
 
+// DotNodeSpec is the specification for a node in a DOT graph
 type DotNodeSpec struct {
 	ID        string
 	Name      string
@@ -37,6 +27,7 @@ type DotNodeSpec struct {
 	FillColor string
 }
 
+// DotEdgeSpec is the specification for an edge in DOT graph
 type DotEdgeSpec struct {
 	FromNodeID string
 	ToNodeID   string
@@ -45,12 +36,14 @@ type DotEdgeSpec struct {
 	Color      string
 }
 
+// Graph hold the nodes and edges of a graph
 type Graph[NT NodeConstrain] struct {
 	nodes        map[string]NT
 	nodeEdges    map[string][]*Edge[NT]
 	edgeSpecFunc EdgeSpecFunc[NT]
 }
 
+// NewGraph creates a new graph
 func NewGraph[NT NodeConstrain](edgeSpecFunc EdgeSpecFunc[NT]) *Graph[NT] {
 	return &Graph[NT]{
 		nodes:        make(map[string]NT),
@@ -59,6 +52,7 @@ func NewGraph[NT NodeConstrain](edgeSpecFunc EdgeSpecFunc[NT]) *Graph[NT] {
 	}
 }
 
+// AddNode adds a node to the graph
 func (g *Graph[NT]) AddNode(n NT) error {
 	nodeKey := n.DotSpec().ID
 	if _, ok := g.nodes[nodeKey]; ok {

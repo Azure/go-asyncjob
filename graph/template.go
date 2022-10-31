@@ -13,7 +13,7 @@ const digraphTemplateText = `digraph {
 	compound = "true"
 	newrank = "true"
 	subgraph "root" {
-{{ range $node := $.Nodes}}		{{$node.ID}} [label="{{$node.Name}}" shape={{$node.Shape}} style={{$node.Style}} tooltip={{$node.Tooltip}} fillcolor={{$node.FillColor}}] 
+{{ range $node := $.Nodes}}		{{$node.ID}} [label="{{$node.Name}}" shape={{$node.Shape}} style={{$node.Style}} tooltip="{{$node.Tooltip}}" fillcolor={{$node.FillColor}}] 
 {{ end }}        
 {{ range $edge := $.Edges}}		{{$edge.FromNodeID}} -> {{$edge.ToNodeID}} [style={{$edge.Style}} tooltip="{{$edge.Tooltip}}" color={{$edge.Color}}] 
 {{ end }}        

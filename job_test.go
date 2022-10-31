@@ -13,7 +13,7 @@ func TestSimpleJob(t *testing.T) {
 		Table2: "table2",
 		Query2: "query2",
 	}
-	jb := sb.BuildJob(context.Background())
+	jb := sb.BuildJob(context.Background(), nil)
 
 	jb.Start(context.Background())
 	jb.Wait(context.Background())
@@ -25,7 +25,24 @@ func TestSimpleJob(t *testing.T) {
 	fmt.Println(dotGraph)
 }
 
-var _ JobBuilder = &SqlJobBuilder{}
+func TestSimpleJobError(t *testing.T) {
+	sb := &SqlJobBuilder{
+		Table1: "table1",
+		Query1: "query1",
+		Table2: "table2",
+		Query2: "query2",
+	}
+	jb := sb.BuildJob(context.Background(), map[string]error{"table2": fmt.Errorf("table2 schema error")})
+
+	jb.Start(context.Background())
+	jb.Wait(context.Background())
+
+	dotGraph, err := jb.Visualize()
+	if err != nil {
+		t.FailNow()
+	}
+	fmt.Println(dotGraph)
+}
 
 type SqlJobBuilder struct {
 	ServerName string
@@ -35,14 +52,12 @@ type SqlJobBuilder struct {
 	Query2     string
 }
 
-func (sjb *SqlJobBuilder) BuildJob(bCtx context.Context) *Job {
+func (sjb *SqlJobBuilder) BuildJob(bCtx context.Context, errorInjections map[string]error) *Job {
 	job := NewJob("sqlSummaryJob")
-	jobLib := &SqlSummaryJobLib{}
+	jobLib := &SqlSummaryJobLib{ErrorInjection: errorInjections}
 
 	serverNameParamTask := InputParam(bCtx, job, "param_serverName", &sjb.ServerName)
 	connTsk, _ := StepAfter(bCtx, job, "getConnection", serverNameParamTask, jobLib.GetConnection)
-
-	// TODO: handle error during BuildJob
 
 	table1ParamTsk := InputParam(bCtx, job, "param_table1", &sjb.Table1)
 	table1ClientTsk, _ := StepAfterBoth(bCtx, job, "getTableClient1", connTsk, table1ParamTsk, jobLib.GetTableClient)
