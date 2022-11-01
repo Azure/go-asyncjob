@@ -158,12 +158,6 @@ func StepAfter[T, S any](bCtx context.Context, j *Job, stepName string, parentSt
 		}
 	}
 
-	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
-	if len(precedingTasks) == 0 {
-		precedingSteps = append(precedingSteps, j.rootStep)
-		precedingTasks = append(precedingTasks, j.rootStep.Waitable())
-	}
-
 	// instrument to :
 	//     replaceRuntimeContext
 	//     trackStepState
@@ -221,11 +215,6 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j *Job, stepName string, p
 		}
 	}
 
-	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
-	if len(precedingTasks) == 0 {
-		precedingSteps = append(precedingSteps, j.rootStep)
-		precedingTasks = append(precedingTasks, j.rootStep.Waitable())
-	}
 	// instrument to :
 	//     replaceRuntimeContext
 	//     trackStepState

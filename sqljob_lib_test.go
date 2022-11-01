@@ -51,3 +51,8 @@ func (sql *SqlSummaryJobLib) SummarizeQueryResult(ctx context.Context, result1 *
 	fmt.Println("SummarizeQueryResult")
 	return &SummarizedResult{Data1: result1.Data, Data2: result2.Data}, nil
 }
+
+func (sql *SqlSummaryJobLib) EmailNotification(ctx context.Context) error {
+	fmt.Println("EmailNotification")
+	return nil
+}

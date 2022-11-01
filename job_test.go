@@ -3,6 +3,7 @@ package asyncjob
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/go-asynctask"
 	"testing"
 )
 
@@ -56,19 +57,20 @@ func (sjb *SqlJobBuilder) BuildJob(bCtx context.Context, errorInjections map[str
 	job := NewJob("sqlSummaryJob")
 	jobLib := &SqlSummaryJobLib{ErrorInjection: errorInjections}
 
-	serverNameParamTask := InputParam(bCtx, job, "param_serverName", &sjb.ServerName)
+	serverNameParamTask := InputParam(bCtx, job, "serverName", &sjb.ServerName)
 	connTsk, _ := StepAfter(bCtx, job, "getConnection", serverNameParamTask, jobLib.GetConnection)
 
-	table1ParamTsk := InputParam(bCtx, job, "param_table1", &sjb.Table1)
+	table1ParamTsk := InputParam(bCtx, job, "table1", &sjb.Table1)
 	table1ClientTsk, _ := StepAfterBoth(bCtx, job, "getTableClient1", connTsk, table1ParamTsk, jobLib.GetTableClient)
-	query1ParamTsk := InputParam(bCtx, job, "param_query1", &sjb.Query1)
+	query1ParamTsk := InputParam(bCtx, job, "query1", &sjb.Query1)
 	qery1ResultTsk, _ := StepAfterBoth(bCtx, job, "queryTable1", table1ClientTsk, query1ParamTsk, jobLib.ExecuteQuery)
 
-	table2ParamTsk := InputParam(bCtx, job, "param_table2", &sjb.Table2)
+	table2ParamTsk := InputParam(bCtx, job, "table2", &sjb.Table2)
 	table2ClientTsk, _ := StepAfterBoth(bCtx, job, "getTableClient2", connTsk, table2ParamTsk, jobLib.GetTableClient)
-	query2ParamTsk := InputParam(bCtx, job, "param_query2", &sjb.Query2)
+	query2ParamTsk := InputParam(bCtx, job, "query2", &sjb.Query2)
 	qery2ResultTsk, _ := StepAfterBoth(bCtx, job, "queryTable2", table2ClientTsk, query2ParamTsk, jobLib.ExecuteQuery)
 
-	StepAfterBoth(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, jobLib.SummarizeQueryResult)
+	summaryTsk, _ := StepAfterBoth(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, jobLib.SummarizeQueryResult)
+	AddStep(bCtx, job, "emailNotification", asynctask.ActionToFunc(jobLib.EmailNotification), ExecuteAfter(summaryTsk))
 	return job
 }
