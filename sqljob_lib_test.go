@@ -6,6 +6,7 @@ import (
 )
 
 type SqlSummaryJobLib struct {
+	ErrorInjection map[string]error
 }
 
 type SqlConnection struct {
@@ -38,10 +39,20 @@ func (sql *SqlSummaryJobLib) GetTableClient(ctx context.Context, conn *SqlConnec
 
 func (sql *SqlSummaryJobLib) ExecuteQuery(ctx context.Context, tableClient *SqlTableClient, queryString *string) (*SqlQueryResult, error) {
 	fmt.Println("ExecuteQuery:", *queryString)
+	if sql.ErrorInjection != nil {
+		if err, ok := sql.ErrorInjection[tableClient.TableName]; ok {
+			return nil, err
+		}
+	}
 	return &SqlQueryResult{Data: map[string]interface{}{"serverName": tableClient.ServerName, "tableName": tableClient.TableName, "queryName": *queryString}}, nil
 }
 
 func (sql *SqlSummaryJobLib) SummarizeQueryResult(ctx context.Context, result1 *SqlQueryResult, result2 *SqlQueryResult) (*SummarizedResult, error) {
 	fmt.Println("SummarizeQueryResult")
 	return &SummarizedResult{Data1: result1.Data, Data2: result2.Data}, nil
+}
+
+func (sql *SqlSummaryJobLib) EmailNotification(ctx context.Context) error {
+	fmt.Println("EmailNotification")
+	return nil
 }

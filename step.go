@@ -2,6 +2,7 @@ package asyncjob
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/Azure/go-asynctask"
@@ -13,6 +14,12 @@ const StepStatePending StepState = "pending"
 const StepStateRunning StepState = "running"
 const StepStateFailed StepState = "failed"
 const StepStateCompleted StepState = "completed"
+
+type stepType string
+
+const stepTypeTask stepType = "task"
+const stepTypeRoot stepType = "root"
+const stepTypeParam stepType = "param"
 
 type StepExecutionOptions struct {
 	Timeout     time.Duration
@@ -43,6 +50,9 @@ type StepMeta interface {
 	Wait(context.Context) error
 	Waitable() asynctask.Waitable
 	ExecutionPolicy() *StepExecutionOptions
+	ExecutionData() *StepExecutionData
+	getType() stepType
+	getID() string
 }
 
 type StepInfo[T any] struct {
@@ -51,13 +61,17 @@ type StepInfo[T any] struct {
 	state            StepState
 	executionOptions *StepExecutionOptions
 	job              *Job
+	executionData    *StepExecutionData
+	stepType         stepType
 }
 
-func newStepInfo[T any](stepName string, optionDecorators ...ExecutionOptionPreparer) *StepInfo[T] {
+func newStepInfo[T any](stepName string, stepType stepType, optionDecorators ...ExecutionOptionPreparer) *StepInfo[T] {
 	step := &StepInfo[T]{
 		name:             stepName,
 		state:            StepStatePending,
 		executionOptions: &StepExecutionOptions{},
+		executionData:    &StepExecutionData{},
+		stepType:         stepType,
 	}
 
 	for _, decorator := range optionDecorators {
@@ -92,4 +106,16 @@ func (si *StepInfo[T]) Waitable() asynctask.Waitable {
 
 func (si *StepInfo[T]) ExecutionPolicy() *StepExecutionOptions {
 	return si.executionOptions
+}
+
+func (si *StepInfo[T]) ExecutionData() *StepExecutionData {
+	return si.executionData
+}
+
+func (si *StepInfo[T]) getType() stepType {
+	return si.stepType
+}
+
+func (sn *StepInfo[T]) getID() string {
+	return fmt.Sprintf("%s_%s", sn.getType(), sn.GetName())
 }

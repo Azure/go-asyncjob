@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Azure/go-asyncjob/graph"
 	"github.com/Azure/go-asynctask"
@@ -15,14 +16,16 @@ const JobStatePending JobState = "pending"
 const JobStateRunning JobState = "running"
 const JobStateCompleted JobState = "completed"
 
+const rootStepName = "job"
+
 type Job struct {
 	Name  string
 	Steps map[string]StepMeta
 
 	state    JobState
-	rootJob  *StepInfo[interface{}]
+	rootStep *StepInfo[interface{}]
 	jobStart *sync.WaitGroup
-	stepsDag *graph.Graph[StepMeta]
+	stepsDag *graph.Graph[*stepNode]
 
 	// runtimeCtx is captured to separate build context and runtime context.
 	// golang not recommending to store context in the struct. I don't have better idea.
@@ -38,59 +41,66 @@ func NewJob(name string) *Job {
 
 		jobStart: &jobStart,
 		state:    JobStatePending,
-		stepsDag: graph.NewGraph[StepMeta](),
+		stepsDag: graph.NewGraph[*stepNode](stepConn),
 	}
 
-	j.rootJob = &StepInfo[interface{}]{
-		name: "[Start]",
-		task: asynctask.Start(context.Background(), func(fctx context.Context) (*interface{}, error) {
-			fmt.Println("RootJob Added")
-			// this will pause all steps from starting, until Start() method is called.
-			jobStart.Wait()
-			j.state = JobStateRunning
-			return nil, nil
-		}),
+	rootStep := newStepInfo[interface{}](rootStepName, stepTypeRoot)
+	rootJobFunc := func(ctx context.Context) (*interface{}, error) {
+		// this will pause all steps from starting, until Start() method is called.
+		jobStart.Wait()
+		j.rootStep.executionData.StartTime = time.Now()
+		j.state = JobStateRunning
+		j.rootStep.state = StepStateCompleted
+		j.rootStep.executionData.Duration = time.Since(j.rootStep.executionData.StartTime)
+		return nil, nil
 	}
 
-	j.Steps[j.rootJob.GetName()] = j.rootJob
-	j.stepsDag.AddNode(j.rootJob)
+	rootStep.task = asynctask.Start(context.Background(), rootJobFunc)
+	j.rootStep = rootStep
+
+	j.Steps[j.rootStep.GetName()] = j.rootStep
+	j.stepsDag.AddNode(newStepNode(j.rootStep))
 
 	return j
 }
 
 func InputParam[T any](bCtx context.Context, j *Job, stepName string, value *T) *StepInfo[T] {
-	step := newStepInfo[T](stepName)
+	step := newStepInfo[T](stepName, stepTypeParam)
 
 	instrumentedFunc := func(ctx context.Context) (*T, error) {
-		j.rootJob.Wait(ctx)
+		j.rootStep.Wait(ctx)
+		step.executionData.StartTime = time.Now()
+		step.state = StepStateCompleted
+		step.executionData.Duration = time.Since(j.rootStep.executionData.StartTime)
 		return value, nil
 	}
 	step.task = asynctask.Start(bCtx, instrumentedFunc)
 
 	j.Steps[stepName] = step
-	j.registerStepInGraph(step, j.rootJob.GetName())
+	j.registerStepInGraph(step, j.rootStep)
 
 	return step
 }
 
 func AddStep[T any](bCtx context.Context, j *Job, stepName string, stepFunc asynctask.AsyncFunc[T], optionDecorators ...ExecutionOptionPreparer) (*StepInfo[T], error) {
-	step := newStepInfo[T](stepName, optionDecorators...)
+	step := newStepInfo[T](stepName, stepTypeTask, optionDecorators...)
 
 	// also consider specified the dependencies from ExecutionOptionPreparer, without consume the result.
-	var precedingStepNames = step.DependsOn()
 	var precedingTasks []asynctask.Waitable
-	for _, stepName := range precedingStepNames {
-		if step, ok := j.Steps[stepName]; ok {
-			precedingTasks = append(precedingTasks, step.Waitable())
+	var precedingSteps []StepMeta
+	for _, depStepName := range step.DependsOn() {
+		if depStep, ok := j.Steps[depStepName]; ok {
+			precedingTasks = append(precedingTasks, depStep.Waitable())
+			precedingSteps = append(precedingSteps, depStep)
 		} else {
-			return nil, fmt.Errorf("step [%s] not found", stepName)
+			return nil, fmt.Errorf("step [%s] not found", depStepName)
 		}
 	}
 
 	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
 	if len(precedingTasks) == 0 {
-		precedingStepNames = append(precedingStepNames, j.rootJob.GetName())
-		precedingTasks = append(precedingTasks, j.rootJob.Waitable())
+		precedingSteps = append(precedingSteps, j.rootStep)
+		precedingTasks = append(precedingTasks, j.rootStep.Waitable())
 	}
 
 	// instrument to :
@@ -101,8 +111,14 @@ func AddStep[T any](bCtx context.Context, j *Job, stepName string, stepFunc asyn
 	//     timeoutHandling (TODO)
 	instrumentedFunc := func(ctx context.Context) (*T, error) {
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
+			/* this only work on ExecuteAfter from input, asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
+			   we need to be consistent on how to set state of dependent step.
+			step.executionData.StartTime = time.Now()
+			step.state = StepStateFailed
+			step.executionData.Duration = 0 */
 			return nil, err
 		}
+		step.executionData.StartTime = time.Now()
 		step.state = StepStateRunning
 		result, err := stepFunc(j.runtimeCtx)
 		if err != nil {
@@ -110,13 +126,14 @@ func AddStep[T any](bCtx context.Context, j *Job, stepName string, stepFunc asyn
 		} else {
 			step.state = StepStateCompleted
 		}
+		step.executionData.Duration = time.Since(step.executionData.StartTime)
 		return result, err
 	}
 
 	step.task = asynctask.Start(bCtx, instrumentedFunc)
 
 	j.Steps[stepName] = step
-	j.registerStepInGraph(step, precedingStepNames...)
+	j.registerStepInGraph(step, precedingSteps...)
 
 	return step, nil
 }
@@ -127,22 +144,18 @@ func StepAfter[T, S any](bCtx context.Context, j *Job, stepName string, parentSt
 		return nil, fmt.Errorf("step [%s] not found in job", parentStep.GetName())
 	}
 
-	step := newStepInfo[S](stepName, append(optionDecorators, ExecuteAfter(parentStep))...)
+	step := newStepInfo[S](stepName, stepTypeTask, append(optionDecorators, ExecuteAfter(parentStep))...)
 
 	// also consider specified the dependencies from ExecutionOptionPreparer, without consume the result.
-	var precedingStepNames = step.DependsOn()
+	var precedingSteps []StepMeta
 	var precedingTasks []asynctask.Waitable
-	for _, stepName := range precedingStepNames {
-		if step, ok := j.Steps[stepName]; ok {
-			precedingTasks = append(precedingTasks, step.Waitable())
+	for _, depStepName := range step.DependsOn() {
+		if depStep, ok := j.Steps[depStepName]; ok {
+			precedingSteps = append(precedingSteps, depStep)
+			precedingTasks = append(precedingTasks, depStep.Waitable())
 		} else {
-			return nil, fmt.Errorf("step [%s] not found", stepName)
+			return nil, fmt.Errorf("step [%s] not found", depStepName)
 		}
-	}
-
-	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
-	if len(precedingTasks) == 0 {
-		precedingTasks = append(precedingTasks, j.rootJob.Waitable())
 	}
 
 	// instrument to :
@@ -153,8 +166,14 @@ func StepAfter[T, S any](bCtx context.Context, j *Job, stepName string, parentSt
 	//     timeoutHandling (TODO)
 	instrumentedFunc := func(ctx context.Context, t *T) (*S, error) {
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
+			/* this only work on ExecuteAfter from input, asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
+			   we need to be consistent on how to set state of dependent step.
+			step.executionData.StartTime = time.Now()
+			step.state = StepStateFailed
+			step.executionData.Duration = 0 */
 			return nil, err
 		}
+		step.executionData.StartTime = time.Now()
 		step.state = StepStateRunning
 		result, err := stepFunc(j.runtimeCtx, t)
 		if err != nil {
@@ -162,13 +181,14 @@ func StepAfter[T, S any](bCtx context.Context, j *Job, stepName string, parentSt
 		} else {
 			step.state = StepStateCompleted
 		}
+		step.executionData.Duration = time.Since(step.executionData.StartTime)
 		return result, err
 	}
 
 	step.task = asynctask.ContinueWith(bCtx, parentStep.task, instrumentedFunc)
 
 	j.Steps[stepName] = step
-	j.registerStepInGraph(step, precedingStepNames...)
+	j.registerStepInGraph(step, precedingSteps...)
 	return step, nil
 }
 
@@ -181,30 +201,37 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j *Job, stepName string, p
 		return nil, fmt.Errorf("step [%s] not found in job", parentStepS.GetName())
 	}
 
-	step := newStepInfo[R](stepName, append(optionDecorators, ExecuteAfter(parentStepT), ExecuteAfter(parentStepS))...)
+	step := newStepInfo[R](stepName, stepTypeTask, append(optionDecorators, ExecuteAfter(parentStepT), ExecuteAfter(parentStepS))...)
 
 	// also consider specified the dependencies from ExecutionOptionPreparer, without consume the result.
-	var precedingStepNames = step.DependsOn()
+	var precedingSteps []StepMeta
 	var precedingTasks []asynctask.Waitable
-	for _, stepName := range precedingStepNames {
-		if step, ok := j.Steps[stepName]; ok {
-			precedingTasks = append(precedingTasks, step.Waitable())
+	for _, depStepName := range step.DependsOn() {
+		if depStep, ok := j.Steps[depStepName]; ok {
+			precedingSteps = append(precedingSteps, depStep)
+			precedingTasks = append(precedingTasks, depStep.Waitable())
 		} else {
-			return nil, fmt.Errorf("step [%s] not found", stepName)
+			return nil, fmt.Errorf("step [%s] not found", depStepName)
 		}
 	}
 
-	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
-	if len(precedingTasks) == 0 {
-		precedingTasks = append(precedingTasks, j.rootJob.Waitable())
-	}
 	// instrument to :
 	//     replaceRuntimeContext
 	//     trackStepState
 	//     retryHandling (TODO)
 	//     errorHandling (TODO)
 	//     timeoutHandling (TODO)
-	instrumentedFunc := func(_ context.Context, t *T, s *S) (*R, error) {
+	instrumentedFunc := func(ctx context.Context, t *T, s *S) (*R, error) {
+		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
+			/* this only work on ExecuteAfter from input, asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
+			   we need to be consistent on how to set state of dependent step.
+			step.executionData.StartTime = time.Now()
+			step.state = StepStateFailed
+			step.executionData.Duration = 0 */
+			return nil, err
+		}
+
+		step.executionData.StartTime = time.Now()
 		step.state = StepStateRunning
 		result, err := stepFunc(j.runtimeCtx, t, s)
 		if err != nil {
@@ -212,13 +239,14 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j *Job, stepName string, p
 		} else {
 			step.state = StepStateCompleted
 		}
+		step.executionData.Duration = time.Since(step.executionData.StartTime)
 		return result, err
 	}
 
 	step.task = asynctask.AfterBoth(bCtx, parentStepT.task, parentStepS.task, instrumentedFunc)
 
 	j.Steps[stepName] = step
-	j.registerStepInGraph(step, precedingStepNames...)
+	j.registerStepInGraph(step, precedingSteps...)
 
 	return step, nil
 }
@@ -227,11 +255,9 @@ func (j *Job) Start(ctx context.Context) error {
 	// TODO: lock Steps, no modification to job execution graph
 	j.jobStart.Done()
 	j.runtimeCtx = ctx
-	if err := j.rootJob.Wait(ctx); err != nil {
-		return fmt.Errorf("job [Start] failed: %w", err)
+	if err := j.rootStep.Wait(ctx); err != nil {
+		return fmt.Errorf("root job %s failed: %w", j.rootStep.name, err)
 	}
-
-	j.rootJob.state = StepStateCompleted
 	return nil
 }
 
@@ -243,10 +269,11 @@ func (j *Job) Wait(ctx context.Context) error {
 	return asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, tasks...)
 }
 
-func (j *Job) registerStepInGraph(step StepMeta, precedingStep ...string) error {
-	j.stepsDag.AddNode(step)
-	for _, precedingStepName := range precedingStep {
-		j.stepsDag.Connect(precedingStepName, step.GetName())
+func (j *Job) registerStepInGraph(step StepMeta, precedingSteps ...StepMeta) error {
+	stepNode := newStepNode(step)
+	j.stepsDag.AddNode(stepNode)
+	for _, precedingStep := range precedingSteps {
+		j.stepsDag.Connect(precedingStep.getID(), step.getID())
 	}
 
 	return nil
