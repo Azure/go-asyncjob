@@ -15,6 +15,7 @@ type SqlSummaryJobLib struct {
 	Table2         string
 	Query2         string
 	ErrorInjection map[string]func() error
+	RetryPolicies  map[string]RetryPolicy
 }
 
 type SqlConnection struct {
@@ -101,23 +102,23 @@ func (sql *SqlSummaryJobLib) EmailNotification(ctx context.Context) error {
 	return nil
 }
 
-func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context, retry RetryPolicy) *Job {
+func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context) *Job {
 	job := NewJob("sqlSummaryJob")
 
 	serverNameParamTask := InputParam(bCtx, job, "serverName", &sql.ServerName)
-	connTsk, _ := StepAfter(bCtx, job, "getConnection", serverNameParamTask, sql.GetConnection)
+	connTsk, _ := StepAfter(bCtx, job, "GetConnection", serverNameParamTask, sql.GetConnection, WithRetry(sql.RetryPolicies["GetConnection"]))
 
-	checkAuthTask, _ := AddStep(bCtx, job, "checkAuth", asynctask.ActionToFunc(sql.CheckAuth))
+	checkAuthTask, _ := AddStep(bCtx, job, "CheckAuth", asynctask.ActionToFunc(sql.CheckAuth), WithRetry(sql.RetryPolicies["CheckAuth"]))
 
 	table1ParamTsk := InputParam(bCtx, job, "table1", &sql.Table1)
 	table1ClientTsk, _ := StepAfterBoth(bCtx, job, "getTableClient1", connTsk, table1ParamTsk, sql.GetTableClient)
 	query1ParamTsk := InputParam(bCtx, job, "query1", &sql.Query1)
-	qery1ResultTsk, _ := StepAfterBoth(bCtx, job, "queryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, WithRetry(retry), ExecuteAfter(checkAuthTask))
+	qery1ResultTsk, _ := StepAfterBoth(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, WithRetry(sql.RetryPolicies["QueryTable1"]), ExecuteAfter(checkAuthTask))
 
 	table2ParamTsk := InputParam(bCtx, job, "table2", &sql.Table2)
 	table2ClientTsk, _ := StepAfterBoth(bCtx, job, "getTableClient2", connTsk, table2ParamTsk, sql.GetTableClient)
 	query2ParamTsk := InputParam(bCtx, job, "query2", &sql.Query2)
-	qery2ResultTsk, _ := StepAfterBoth(bCtx, job, "queryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, WithRetry(retry), ExecuteAfter(checkAuthTask))
+	qery2ResultTsk, _ := StepAfterBoth(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, WithRetry(sql.RetryPolicies["QueryTable2"]), ExecuteAfter(checkAuthTask))
 
 	summaryTsk, _ := StepAfterBoth(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, sql.SummarizeQueryResult)
 	AddStep(bCtx, job, "emailNotification", asynctask.ActionToFunc(sql.EmailNotification), ExecuteAfter(summaryTsk))
@@ -130,7 +131,7 @@ type linearRetryPolicy struct {
 	tried         int
 }
 
-func NewLinearRetryPolicy(sleepInterval time.Duration, maxRetryCount int) RetryPolicy {
+func newLinearRetryPolicy(sleepInterval time.Duration, maxRetryCount int) RetryPolicy {
 	return &linearRetryPolicy{
 		sleepInterval: sleepInterval,
 		maxRetryCount: maxRetryCount,
@@ -143,5 +144,8 @@ func (lrp *linearRetryPolicy) SleepInterval() time.Duration {
 }
 
 func (lrp *linearRetryPolicy) ShouldRetry(error) bool {
-	return true
+	if lrp.tried < lrp.maxRetryCount {
+		return true
+	}
+	return false
 }

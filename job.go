@@ -116,7 +116,7 @@ func AddStep[T any](bCtx context.Context, j *Job, stepName string, stepFunc asyn
 			step.executionData.StartTime = time.Now()
 			step.state = StepStateFailed
 			step.executionData.Duration = 0 */
-			return nil, err
+			return nil, newJobError(ErrPrecedentStepFailure, "")
 		}
 		step.executionData.StartTime = time.Now()
 		step.state = StepStateRunning
@@ -137,7 +137,7 @@ func AddStep[T any](bCtx context.Context, j *Job, stepName string, stepFunc asyn
 		}
 
 		step.executionData.Duration = time.Since(step.executionData.StartTime)
-		return result, err
+		return result, newStepError(stepName, err)
 	}
 
 	step.task = asynctask.Start(bCtx, instrumentedFunc)
@@ -181,7 +181,7 @@ func StepAfter[T, S any](bCtx context.Context, j *Job, stepName string, parentSt
 			step.executionData.StartTime = time.Now()
 			step.state = StepStateFailed
 			step.executionData.Duration = 0 */
-			return nil, err
+			return nil, newJobError(ErrPrecedentStepFailure, "")
 		}
 		step.executionData.StartTime = time.Now()
 		step.state = StepStateRunning
@@ -201,7 +201,7 @@ func StepAfter[T, S any](bCtx context.Context, j *Job, stepName string, parentSt
 		}
 
 		step.executionData.Duration = time.Since(step.executionData.StartTime)
-		return result, err
+		return result, newStepError(stepName, err)
 	}
 
 	step.task = asynctask.ContinueWith(bCtx, parentStep.task, instrumentedFunc)
@@ -247,7 +247,7 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j *Job, stepName string, p
 			step.executionData.StartTime = time.Now()
 			step.state = StepStateFailed
 			step.executionData.Duration = 0 */
-			return nil, err
+			return nil, newJobError(ErrPrecedentStepFailure, "")
 		}
 
 		step.executionData.StartTime = time.Now()
@@ -269,7 +269,7 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j *Job, stepName string, p
 		}
 
 		step.executionData.Duration = time.Since(step.executionData.StartTime)
-		return result, err
+		return result, newStepError(stepName, err)
 	}
 
 	step.task = asynctask.AfterBoth(bCtx, parentStepT.task, parentStepS.task, instrumentedFunc)
