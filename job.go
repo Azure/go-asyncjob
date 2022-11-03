@@ -120,12 +120,22 @@ func AddStep[T any](bCtx context.Context, j *Job, stepName string, stepFunc asyn
 		}
 		step.executionData.StartTime = time.Now()
 		step.state = StepStateRunning
-		result, err := stepFunc(j.runtimeCtx)
+
+		var result *T
+		var err error
+		if step.executionOptions.RetryPolicy != nil {
+			step.executionData.Retried = &RetryReport{}
+			result, err = newRetryer(step.executionOptions.RetryPolicy, step.executionData.Retried, func() (*T, error) { return stepFunc(j.runtimeCtx) }).Run()
+		} else {
+			result, err = stepFunc(j.runtimeCtx)
+		}
+
 		if err != nil {
 			step.state = StepStateFailed
 		} else {
 			step.state = StepStateCompleted
 		}
+
 		step.executionData.Duration = time.Since(step.executionData.StartTime)
 		return result, err
 	}
@@ -175,12 +185,21 @@ func StepAfter[T, S any](bCtx context.Context, j *Job, stepName string, parentSt
 		}
 		step.executionData.StartTime = time.Now()
 		step.state = StepStateRunning
-		result, err := stepFunc(j.runtimeCtx, t)
+		var result *S
+		var err error
+		if step.executionOptions.RetryPolicy != nil {
+			step.executionData.Retried = &RetryReport{}
+			result, err = newRetryer(step.executionOptions.RetryPolicy, step.executionData.Retried, func() (*S, error) { return stepFunc(j.runtimeCtx, t) }).Run()
+		} else {
+			result, err = stepFunc(j.runtimeCtx, t)
+		}
+
 		if err != nil {
 			step.state = StepStateFailed
 		} else {
 			step.state = StepStateCompleted
 		}
+
 		step.executionData.Duration = time.Since(step.executionData.StartTime)
 		return result, err
 	}
@@ -233,12 +252,22 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j *Job, stepName string, p
 
 		step.executionData.StartTime = time.Now()
 		step.state = StepStateRunning
-		result, err := stepFunc(j.runtimeCtx, t, s)
+
+		var result *R
+		var err error
+		if step.executionOptions.RetryPolicy != nil {
+			step.executionData.Retried = &RetryReport{}
+			result, err = newRetryer(step.executionOptions.RetryPolicy, step.executionData.Retried, func() (*R, error) { return stepFunc(j.runtimeCtx, t, s) }).Run()
+		} else {
+			result, err = stepFunc(j.runtimeCtx, t, s)
+		}
+
 		if err != nil {
 			step.state = StepStateFailed
 		} else {
 			step.state = StepStateCompleted
 		}
+
 		step.executionData.Duration = time.Since(step.executionData.StartTime)
 		return result, err
 	}
