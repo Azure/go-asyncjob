@@ -3,7 +3,6 @@ package asyncjob
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/Azure/go-asynctask"
 )
@@ -20,28 +19,6 @@ type stepType string
 const stepTypeTask stepType = "task"
 const stepTypeRoot stepType = "root"
 const stepTypeParam stepType = "param"
-
-type StepExecutionOptions struct {
-	Timeout     time.Duration
-	ErrorPolicy StepErrorPolicy
-	RetryPolicy StepRetryPolicy
-
-	// dependencies that are not input.
-	DependOn []string
-}
-
-type StepErrorPolicy struct{}
-
-type StepRetryPolicy struct{}
-
-type ExecutionOptionPreparer func(*StepExecutionOptions) *StepExecutionOptions
-
-func ExecuteAfter(step StepMeta) ExecutionOptionPreparer {
-	return func(options *StepExecutionOptions) *StepExecutionOptions {
-		options.DependOn = append(options.DependOn, step.GetName())
-		return options
-	}
-}
 
 type StepMeta interface {
 	GetName() string

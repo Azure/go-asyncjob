@@ -33,7 +33,7 @@ func (sn *stepNode) getShape() string {
 	case stepTypeRoot:
 		return "triangle"
 	case stepTypeParam:
-		return "doublecircle"
+		return "hexagon"
 	case stepTypeTask:
 		return "box"
 	default:
