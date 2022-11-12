@@ -1,10 +1,11 @@
-package asyncjob
+package asyncjob_test
 
 import (
 	"context"
 	"fmt"
 	"time"
 
+	"github.com/Azure/go-asyncjob"
 	"github.com/Azure/go-asynctask"
 )
 
@@ -15,7 +16,7 @@ type SqlSummaryJobLib struct {
 	Table2         string
 	Query2         string
 	ErrorInjection map[string]func() error
-	RetryPolicies  map[string]RetryPolicy
+	RetryPolicies  map[string]asyncjob.RetryPolicy
 }
 
 type SqlConnection struct {
@@ -102,26 +103,26 @@ func (sql *SqlSummaryJobLib) EmailNotification(ctx context.Context) error {
 	return nil
 }
 
-func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context) *Job {
-	job := NewJob("sqlSummaryJob")
+func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context) *asyncjob.Job {
+	job := asyncjob.NewJob("sqlSummaryJob")
 
-	serverNameParamTask := InputParam(bCtx, job, "serverName", &sql.ServerName)
-	connTsk, _ := StepAfter(bCtx, job, "GetConnection", serverNameParamTask, sql.GetConnection, WithRetry(sql.RetryPolicies["GetConnection"]))
+	serverNameParamTask := asyncjob.InputParam(bCtx, job, "serverName", &sql.ServerName)
+	connTsk, _ := asyncjob.StepAfter(bCtx, job, "GetConnection", serverNameParamTask, sql.GetConnection, asyncjob.WithRetry(sql.RetryPolicies["GetConnection"]))
 
-	checkAuthTask, _ := AddStep(bCtx, job, "CheckAuth", asynctask.ActionToFunc(sql.CheckAuth), WithRetry(sql.RetryPolicies["CheckAuth"]))
+	checkAuthTask, _ := asyncjob.AddStep(bCtx, job, "CheckAuth", asynctask.ActionToFunc(sql.CheckAuth), asyncjob.WithRetry(sql.RetryPolicies["CheckAuth"]))
 
-	table1ParamTsk := InputParam(bCtx, job, "table1", &sql.Table1)
-	table1ClientTsk, _ := StepAfterBoth(bCtx, job, "getTableClient1", connTsk, table1ParamTsk, sql.GetTableClient)
-	query1ParamTsk := InputParam(bCtx, job, "query1", &sql.Query1)
-	qery1ResultTsk, _ := StepAfterBoth(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, WithRetry(sql.RetryPolicies["QueryTable1"]), ExecuteAfter(checkAuthTask))
+	table1ParamTsk := asyncjob.InputParam(bCtx, job, "table1", &sql.Table1)
+	table1ClientTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "getTableClient1", connTsk, table1ParamTsk, sql.GetTableClient)
+	query1ParamTsk := asyncjob.InputParam(bCtx, job, "query1", &sql.Query1)
+	qery1ResultTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.RetryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask))
 
-	table2ParamTsk := InputParam(bCtx, job, "table2", &sql.Table2)
-	table2ClientTsk, _ := StepAfterBoth(bCtx, job, "getTableClient2", connTsk, table2ParamTsk, sql.GetTableClient)
-	query2ParamTsk := InputParam(bCtx, job, "query2", &sql.Query2)
-	qery2ResultTsk, _ := StepAfterBoth(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, WithRetry(sql.RetryPolicies["QueryTable2"]), ExecuteAfter(checkAuthTask))
+	table2ParamTsk := asyncjob.InputParam(bCtx, job, "table2", &sql.Table2)
+	table2ClientTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "getTableClient2", connTsk, table2ParamTsk, sql.GetTableClient)
+	query2ParamTsk := asyncjob.InputParam(bCtx, job, "query2", &sql.Query2)
+	qery2ResultTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.RetryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask))
 
-	summaryTsk, _ := StepAfterBoth(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, sql.SummarizeQueryResult)
-	AddStep(bCtx, job, "emailNotification", asynctask.ActionToFunc(sql.EmailNotification), ExecuteAfter(summaryTsk))
+	summaryTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, sql.SummarizeQueryResult)
+	asyncjob.AddStep(bCtx, job, "emailNotification", asynctask.ActionToFunc(sql.EmailNotification), asyncjob.ExecuteAfter(summaryTsk))
 	return job
 }
 
@@ -131,7 +132,7 @@ type linearRetryPolicy struct {
 	tried         int
 }
 
-func newLinearRetryPolicy(sleepInterval time.Duration, maxRetryCount int) RetryPolicy {
+func newLinearRetryPolicy(sleepInterval time.Duration, maxRetryCount int) asyncjob.RetryPolicy {
 	return &linearRetryPolicy{
 		sleepInterval: sleepInterval,
 		maxRetryCount: maxRetryCount,
