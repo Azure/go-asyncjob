@@ -37,7 +37,6 @@ type StepInfo[T any] struct {
 	task             *asynctask.Task[T]
 	state            StepState
 	executionOptions *StepExecutionOptions
-	job              *Job
 	executionData    *StepExecutionData
 	stepType         stepType
 }
