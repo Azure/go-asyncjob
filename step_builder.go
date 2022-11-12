@@ -73,14 +73,15 @@ func AddStep[T any](bCtx context.Context, j JobInterface, stepName string, stepF
 			result, err = stepFunc(j.RuntimeContext())
 		}
 
+		step.executionData.Duration = time.Since(step.executionData.StartTime)
+
 		if err != nil {
 			step.state = StepStateFailed
+			return nil, newStepError(stepName, err)
 		} else {
 			step.state = StepStateCompleted
+			return result, nil
 		}
-
-		step.executionData.Duration = time.Since(step.executionData.StartTime)
-		return result, newStepError(stepName, err)
 	}
 
 	step.task = asynctask.Start(bCtx, instrumentedFunc)
@@ -136,14 +137,15 @@ func StepAfter[T, S any](bCtx context.Context, j JobInterface, stepName string, 
 			result, err = stepFunc(j.RuntimeContext(), t)
 		}
 
+		step.executionData.Duration = time.Since(step.executionData.StartTime)
+
 		if err != nil {
 			step.state = StepStateFailed
+			return nil, newStepError(stepName, err)
 		} else {
 			step.state = StepStateCompleted
+			return result, nil
 		}
-
-		step.executionData.Duration = time.Since(step.executionData.StartTime)
-		return result, newStepError(stepName, err)
 	}
 
 	step.task = asynctask.ContinueWith(bCtx, parentStep.task, instrumentedFunc)
@@ -203,14 +205,15 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j JobInterface, stepName s
 			result, err = stepFunc(j.RuntimeContext(), t, s)
 		}
 
+		step.executionData.Duration = time.Since(step.executionData.StartTime)
+
 		if err != nil {
 			step.state = StepStateFailed
+			return nil, newStepError(stepName, err)
 		} else {
 			step.state = StepStateCompleted
+			return result, nil
 		}
-
-		step.executionData.Duration = time.Since(step.executionData.StartTime)
-		return result, newStepError(stepName, err)
 	}
 
 	step.task = asynctask.AfterBoth(bCtx, parentStepT.task, parentStepS.task, instrumentedFunc)

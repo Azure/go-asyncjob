@@ -91,7 +91,7 @@ func (j *Job) AddStep(step StepMeta, precedingSteps ...StepMeta) {
 	stepNode := newStepNode(step)
 	j.stepsDag.AddNode(stepNode)
 	for _, precedingStep := range precedingSteps {
-		j.stepsDag.Connect(precedingStep.getID(), step.getID())
+		j.stepsDag.Connect(newStepNode(precedingStep), stepNode)
 	}
 }
 

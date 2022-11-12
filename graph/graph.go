@@ -2,6 +2,7 @@ package graph
 
 import (
 	"bytes"
+	"fmt"
 )
 
 // NodeConstrain is a constraint for a node in a graph
@@ -56,25 +57,26 @@ func NewGraph[NT NodeConstrain](edgeSpecFunc EdgeSpecFunc[NT]) *Graph[NT] {
 func (g *Graph[NT]) AddNode(n NT) error {
 	nodeKey := n.DotSpec().ID
 	if _, ok := g.nodes[nodeKey]; ok {
-		return ErrDuplicateNode
+		return NewGraphError(ErrDuplicateNode, fmt.Sprintf("node with key %s already exists in this graph", nodeKey))
 	}
 	g.nodes[nodeKey] = n
 
 	return nil
 }
 
-func (g *Graph[NT]) Connect(from, to string) error {
-	var nodeFrom, nodeTo NT
+func (g *Graph[NT]) Connect(from, to NT) error {
+	fromNodeKey := from.DotSpec().ID
+	toNodeKey := to.DotSpec().ID
 	var ok bool
-	if nodeFrom, ok = g.nodes[from]; !ok {
-		return ErrConnectNotExistingNode
+	if from, ok = g.nodes[fromNodeKey]; !ok {
+		return NewGraphError(ErrConnectNotExistingNode, fmt.Sprintf("cannot connect node %s, it's not added in this graph yet", fromNodeKey))
 	}
 
-	if nodeTo, ok = g.nodes[to]; !ok {
-		return ErrConnectNotExistingNode
+	if to, ok = g.nodes[toNodeKey]; !ok {
+		return NewGraphError(ErrConnectNotExistingNode, fmt.Sprintf("cannot connect node %s, it's not added in this graph yet", toNodeKey))
 	}
 
-	g.nodeEdges[from] = append(g.nodeEdges[from], &Edge[NT]{From: nodeFrom, To: nodeTo})
+	g.nodeEdges[fromNodeKey] = append(g.nodeEdges[fromNodeKey], &Edge[NT]{From: from, To: to})
 	return nil
 }
 
