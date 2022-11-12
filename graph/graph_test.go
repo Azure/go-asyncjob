@@ -1,14 +1,16 @@
 package graph_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/Azure/go-asyncjob/graph"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestSimpleJob(t *testing.T) {
-	g := graph.NewGraph[*testNode](edgeSpecFromConnection)
+func TestSimpleGraph(t *testing.T) {
+	g := graph.NewGraph(edgeSpecFromConnection)
 	root := &testNode{Name: "root"}
 	g.AddNode(root)
 	calc1 := &testNode{Name: "calc1"}
@@ -18,16 +20,25 @@ func TestSimpleJob(t *testing.T) {
 	summary := &testNode{Name: "summary"}
 	g.AddNode(summary)
 
-	g.Connect(root.DotSpec().ID, calc1.DotSpec().ID)
-	g.Connect(root.DotSpec().ID, calc2.DotSpec().ID)
-	g.Connect(calc1.DotSpec().ID, summary.DotSpec().ID)
-	g.Connect(calc2.DotSpec().ID, summary.DotSpec().ID)
+	g.Connect(root, calc1)
+	g.Connect(root, calc2)
+	g.Connect(calc1, summary)
+	g.Connect(calc2, summary)
 
-	graph, err := g.ToDotGraph()
+	graphStr, err := g.ToDotGraph()
 	if err != nil {
-		t.Fatal(err)
+		assert.NoError(t, err)
 	}
-	fmt.Println(graph)
+	t.Log(graphStr)
+
+	err = g.AddNode(calc1)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, graph.ErrDuplicateNode))
+
+	calc3 := &testNode{Name: "calc3"}
+	err = g.Connect(root, calc3)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, graph.ErrConnectNotExistingNode))
 }
 
 type testNode struct {

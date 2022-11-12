@@ -1,19 +1,26 @@
 package graph
 
-type GraphErrorCode string
+type GraphCodeError string
 
 const (
-	ErrDuplicateNode          GraphErrorCode = "node with same key already exists in this graph"
-	ErrConnectNotExistingNode GraphErrorCode = "node to connect does not exist in this graph"
+	ErrDuplicateNode          GraphCodeError = "node with same key already exists in this graph"
+	ErrConnectNotExistingNode GraphCodeError = "node to connect does not exist in this graph"
 )
 
-func (ge GraphErrorCode) Error() string {
+func (ge GraphCodeError) Error() string {
 	return string(ge)
 }
 
 type GraphError struct {
-	Code    GraphErrorCode
+	Code    GraphCodeError
 	Message string
+}
+
+func NewGraphError(code GraphCodeError, message string) *GraphError {
+	return &GraphError{
+		Code:    code,
+		Message: message,
+	}
 }
 
 func (ge *GraphError) Error() string {
