@@ -91,6 +91,69 @@ func AddStep[T any](bCtx context.Context, j JobInterface, stepName string, stepF
 	return step, nil
 }
 
+func AddStepV2[JT, ST any](bCtx context.Context, j JobDefinitionMeta, stepName string, stepFunc asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	step := newStepDefinition[ST](stepName, stepTypeTask, optionDecorators...)
+
+	// also consider specified the dependencies from ExecutionOptionPreparer, without consume the result.
+
+	var precedingSteps []StepDefinitionMeta
+	for _, depStepName := range step.DependsOn() {
+		if depStep, ok := j.GetStep(depStepName); ok {
+			precedingSteps = append(precedingSteps, depStep)
+		} else {
+			return nil, fmt.Errorf("step [%s] not found", depStepName)
+		}
+	}
+
+	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
+	if len(precedingSteps) == 0 {
+		precedingSteps = append(precedingSteps, j.RootStep())
+	}
+
+	step.taskCreator = func(ctx context.Context, ji JobInstanceMeta, stepInstance *StepInstance[ST]) *asynctask.Task[ST] {
+		var precedingTasks []asynctask.Waitable
+		for _, depStepName := range step.DependsOn() {
+			if depStep, ok := ji.GetStepInstance(depStepName); ok {
+				precedingTasks = append(precedingTasks, depStep.Waitable())
+			}
+		}
+		// instrument to :
+		//     replaceRuntimeContext,
+		//     trackStepState
+		//     retryHandling
+		//     errorHandling (TODO)
+		//     timeoutHandling (TODO)
+		instrumentedFunc := func(ctx context.Context) (*ST, error) {
+			stepInstance.executionData.StartTime = time.Now()
+			stepInstance.state = StepStateRunning
+
+			var result *ST
+			var err error
+			if step.executionOptions.RetryPolicy != nil {
+				stepInstance.executionData.Retried = &RetryReport{}
+				result, err = newRetryer(step.executionOptions.RetryPolicy, stepInstance.executionData.Retried, func() (*ST, error) { return stepFunc(ctx) }).Run()
+			} else {
+				result, err = stepFunc(ctx)
+			}
+
+			stepInstance.executionData.Duration = time.Since(stepInstance.executionData.StartTime)
+
+			if err != nil {
+				stepInstance.state = StepStateFailed
+				return nil, newStepError(stepName, err)
+			} else {
+				stepInstance.state = StepStateCompleted
+				return result, nil
+			}
+		}
+
+		return asynctask.Start(ctx, instrumentedFunc)
+	}
+
+	j.AddStep(step, precedingSteps...)
+	return step, nil
+}
+
 func StepAfter[T, S any](bCtx context.Context, j JobInterface, stepName string, parentStep *StepInfo[T], stepFunc asynctask.ContinueFunc[T, S], optionDecorators ...ExecutionOptionPreparer) (*StepInfo[S], error) {
 	// check parentStepT is in this job
 	if get, ok := j.GetStep(parentStep.GetName()); !ok || get != parentStep {
