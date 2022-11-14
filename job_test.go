@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Azure/go-asyncjob"
+	"github.com/goccy/go-graphviz"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,15 +26,10 @@ func TestSimpleJob(t *testing.T) {
 
 	jb.Start(context.Background())
 	jobErr := jb.Wait(context.Background())
-	if jobErr != nil {
-		assert.NoError(t, jobErr)
-	}
+	assert.NoError(t, jobErr)
 
-	dotGraph, vizErr := jb.Visualize()
-	if vizErr != nil {
-		t.FailNow()
-	}
-	fmt.Println(dotGraph)
+	renderErr := renderGraph(jb)
+	assert.NoError(t, renderErr)
 }
 
 func TestSimpleJobError(t *testing.T) {
@@ -57,11 +53,8 @@ func TestSimpleJobError(t *testing.T) {
 		assert.Error(t, jobErr)
 	}
 
-	dotGraph, err := jb.Visualize()
-	if err != nil {
-		t.FailNow()
-	}
-	fmt.Println(dotGraph)
+	renderErr := renderGraph(jb)
+	assert.NoError(t, renderErr)
 }
 
 func TestSimpleJobPanic(t *testing.T) {
@@ -93,11 +86,24 @@ func TestSimpleJobPanic(t *testing.T) {
 		assert.Error(t, jobErr)
 	}
 
-	dotGraph, err := jb.Visualize()
+	renderErr := renderGraph(jb)
+	assert.NoError(t, renderErr)
+}
+
+func renderGraph(jb *asyncjob.Job) error {
+	graphStr, err := jb.Visualize()
 	if err != nil {
-		t.FailNow()
+		return err
 	}
-	fmt.Println(dotGraph)
+
+	fmt.Println(graphStr)
+
+	_, err = graphviz.ParseBytes([]byte(graphStr))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getErrorFunc(err error, count int) func() error {

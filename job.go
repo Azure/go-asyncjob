@@ -16,8 +16,6 @@ const JobStatePending JobState = "pending"
 const JobStateRunning JobState = "running"
 const JobStateCompleted JobState = "completed"
 
-const rootStepName = "$job"
-
 type JobInterface interface {
 	GetStep(stepName string) (StepMeta, bool) // switch bool to error
 	AddStep(step StepMeta, precedingSteps ...StepMeta)
@@ -56,7 +54,7 @@ func NewJob(name string) *Job {
 		stepsDag: graph.NewGraph[*stepNode](stepConn),
 	}
 
-	rootStep := newStepInfo[interface{}](rootStepName, stepTypeRoot)
+	rootStep := newStepInfo[interface{}](name, stepTypeRoot)
 	rootJobFunc := func(ctx context.Context) (*interface{}, error) {
 		// this will pause all steps from starting, until Start() method is called.
 		jobStart.Wait()
