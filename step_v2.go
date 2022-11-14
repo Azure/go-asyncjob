@@ -12,13 +12,14 @@ type StepDefinitionMeta interface {
 	DependsOn() []string
 	ExecutionPolicy() *StepExecutionOptions
 	DotSpec() *graph.DotNodeSpec
+	CreateStepInstance(context.Context, JobInstanceMeta) StepInstanceMeta
 }
 
 type StepDefinition[T any] struct {
 	name             string
 	stepType         stepType
 	executionOptions *StepExecutionOptions
-	taskCreator      func(context.Context, JobInstanceMeta, *StepInstance[T]) *asynctask.Task[T]
+	instanceCreator  func(context.Context, JobInstanceMeta) StepInstanceMeta
 }
 
 func newStepDefinition[T any](stepName string, stepType stepType, optionDecorators ...ExecutionOptionPreparer) *StepDefinition[T] {
@@ -47,6 +48,10 @@ func (sd *StepDefinition[T]) ExecutionPolicy() *StepExecutionOptions {
 	return sd.executionOptions
 }
 
+func (sd *StepDefinition[T]) CreateStepInstance(ctx context.Context, jobInstance JobInstanceMeta) StepInstanceMeta {
+	return sd.instanceCreator(ctx, jobInstance)
+}
+
 func (sd *StepDefinition[T]) DotSpec() *graph.DotNodeSpec {
 	return &graph.DotNodeSpec{
 		ID:        sd.GetName(),
@@ -56,17 +61,6 @@ func (sd *StepDefinition[T]) DotSpec() *graph.DotNodeSpec {
 		FillColor: "gray",
 		Tooltip:   "",
 	}
-}
-
-func (sd *StepDefinition[T]) Instantiate(ji JobInstanceMeta) *StepInstance[T] {
-	// TODO : create asynctask
-	si := &StepInstance[T]{
-		Definition:    sd,
-		executionData: &StepExecutionData{},
-		state:         StepStatePending,
-	}
-	si.task = sd.taskCreator(context.Background(), ji, si)
-	return si
 }
 
 func connectStepDefinition(stepFrom, stepTo StepDefinitionMeta) *graph.DotEdgeSpec {
@@ -81,6 +75,7 @@ func connectStepDefinition(stepFrom, stepTo StepDefinitionMeta) *graph.DotEdgeSp
 }
 
 type StepInstanceMeta interface {
+	GetName() string
 	Waitable() asynctask.Waitable
 }
 
@@ -91,6 +86,18 @@ type StepInstance[T any] struct {
 	executionData *StepExecutionData
 }
 
+func newStepInstance[T any](stepDefinition *StepDefinition[T]) *StepInstance[T] {
+	return &StepInstance[T]{
+		Definition:    stepDefinition,
+		executionData: &StepExecutionData{},
+		state:         StepStatePending,
+	}
+}
+
 func (si *StepInstance[T]) Waitable() asynctask.Waitable {
 	return si.task
+}
+
+func (si *StepInstance[T]) GetName() string {
+	return si.Definition.GetName()
 }

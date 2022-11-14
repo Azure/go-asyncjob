@@ -2,6 +2,7 @@ package asyncjob
 
 import (
 	"context"
+	"github.com/Azure/go-asynctask"
 	"sync"
 
 	"github.com/Azure/go-asyncjob/graph"
@@ -36,13 +37,24 @@ func NewJobDefinition[T any](name string) *JobDefinition[T] {
 	return j
 }
 
-func (jd *JobDefinition[T]) Start(ctx context.Context, params T) *JobInstance[T] {
+func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T] {
 	// TODO: build job instance
-	return &JobInstance[T]{
+	ji := &JobInstance[T]{
 		definition: jd,
-		input:      params,
+		input:      input,
 		state:      JobStateRunning,
 	}
+	ji.rootStep = newStepInstance(jd.rootStep)
+	ji.rootStep.task = asynctask.NewCompletedTask[T](input)
+
+	for stepDefName, stepDef := range jd.steps {
+		if stepDefName == rootStepName {
+			continue
+		}
+		ji.steps[stepDefName] = stepDef.CreateStepInstance(ctx, ji)
+	}
+
+	return ji
 }
 
 func (jd *JobDefinition[T]) RootStep() StepDefinitionMeta {
@@ -65,19 +77,36 @@ func (jd *JobDefinition[T]) AddStep(step StepDefinitionMeta, precedingSteps ...S
 
 type JobInstanceMeta interface {
 	GetStepInstance(stepName string) (StepInstanceMeta, bool)
+	AddStepInstance(step StepInstanceMeta, precedingSteps ...StepInstanceMeta)
 	Wait(context.Context) error
 }
 
 type JobInstance[T any] struct {
-	input      T
+	input      *T
 	definition *JobDefinition[T]
 	state      JobState
 	jobStart   *sync.WaitGroup
-	rootStep   StepInstanceMeta
-	Steps      map[string]StepInstanceMeta
+	rootStep   *StepInstance[T]
+	steps      map[string]StepInstanceMeta
+	// stepdag
 }
 
 func (ji *JobInstance[T]) GetStepInstance(stepName string) (StepInstanceMeta, bool) {
-	stepMeta, ok := ji.Steps[stepName]
+	stepMeta, ok := ji.steps[stepName]
 	return stepMeta, ok
+}
+
+func (ji *JobInstance[T]) AddStepInstance(step StepInstanceMeta, precedingSteps ...StepInstanceMeta) {
+	// TODO: check conflict
+	ji.steps[step.GetName()] = step
+	/*
+		ji.stepsDag.AddNode(step)
+		for _, precedingStep := range precedingSteps {
+			jd.stepsDag.Connect(precedingStep, step)
+		}
+	*/
+}
+
+func (ji *JobInstance[T]) Wait(context.Context) error {
+	return nil
 }
