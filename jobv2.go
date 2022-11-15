@@ -43,9 +43,11 @@ func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T]
 		definition: jd,
 		input:      input,
 		state:      JobStateRunning,
+		steps:      map[string]StepInstanceMeta{},
 	}
 	ji.rootStep = newStepInstance(jd.rootStep)
 	ji.rootStep.task = asynctask.NewCompletedTask[T](input)
+	ji.steps[ji.rootStep.GetName()] = ji.rootStep
 
 	for stepDefName, stepDef := range jd.steps {
 		if stepDefName == jd.Name {

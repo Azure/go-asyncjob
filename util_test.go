@@ -20,7 +20,6 @@ type SqlSummaryJobParameters struct {
 	Table2         string
 	Query2         string
 	ErrorInjection map[string]func() error
-	RetryPolicies  map[string]asyncjob.RetryPolicy
 }
 
 type SqlConnection struct {
@@ -107,7 +106,7 @@ func (sql *SqlSummaryJobLib) EmailNotification(ctx context.Context) error {
 	return nil
 }
 
-func (sql *SqlSummaryJobLib) BuildJobV2(bCtx context.Context) *asyncjob.JobDefinition[SqlSummaryJobParameters] {
+func (sql *SqlSummaryJobLib) BuildJobV2(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) *asyncjob.JobDefinition[SqlSummaryJobParameters] {
 	job := asyncjob.NewJobDefinition[SqlSummaryJobParameters]("sqlSummaryJobV2")
 	serverNameParamTask, _ := asyncjob.StepAfterV2(bCtx, job, "serverName", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
 		return &input.ServerName, nil
@@ -122,7 +121,7 @@ func (sql *SqlSummaryJobLib) BuildJobV2(bCtx context.Context) *asyncjob.JobDefin
 	query1ParamTsk, _ := asyncjob.StepAfterV2(bCtx, job, "query1", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
 		return &input.Query1, nil
 	})
-	qery1ResultTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.Params.RetryPolicies["QueryTable1"]), asyncjob.ExecuteAfterV2(checkAuthTask))
+	qery1ResultTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfterV2(checkAuthTask))
 
 	table2ParamTsk, _ := asyncjob.StepAfterV2(bCtx, job, "table2", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
 		return &input.Table2, nil
@@ -131,30 +130,30 @@ func (sql *SqlSummaryJobLib) BuildJobV2(bCtx context.Context) *asyncjob.JobDefin
 	query2ParamTsk, _ := asyncjob.StepAfterV2(bCtx, job, "query2", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
 		return &input.Query2, nil
 	})
-	qery2ResultTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.Params.RetryPolicies["QueryTable2"]), asyncjob.ExecuteAfterV2(checkAuthTask))
+	qery2ResultTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfterV2(checkAuthTask))
 
 	summaryTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, sql.SummarizeQueryResult)
 	asyncjob.AddStepV2(bCtx, job, "emailNotification", asynctask.ActionToFunc(sql.EmailNotification), asyncjob.ExecuteAfterV2(summaryTsk))
 	return job
 }
 
-func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context) *asyncjob.Job {
+func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) *asyncjob.Job {
 	job := asyncjob.NewJob("sqlSummaryJob")
 
 	serverNameParamTask := asyncjob.InputParam(bCtx, job, "serverName", &sql.Params.ServerName)
-	connTsk, _ := asyncjob.StepAfter(bCtx, job, "GetConnection", serverNameParamTask, sql.GetConnection, asyncjob.WithRetry(sql.Params.RetryPolicies["GetConnection"]))
+	connTsk, _ := asyncjob.StepAfter(bCtx, job, "GetConnection", serverNameParamTask, sql.GetConnection, asyncjob.WithRetry(retryPolicies["GetConnection"]))
 
-	checkAuthTask, _ := asyncjob.AddStep(bCtx, job, "CheckAuth", asynctask.ActionToFunc(sql.CheckAuth), asyncjob.WithRetry(sql.Params.RetryPolicies["CheckAuth"]))
+	checkAuthTask, _ := asyncjob.AddStep(bCtx, job, "CheckAuth", asynctask.ActionToFunc(sql.CheckAuth), asyncjob.WithRetry(retryPolicies["CheckAuth"]))
 
 	table1ParamTsk := asyncjob.InputParam(bCtx, job, "table1", &sql.Params.Table1)
 	table1ClientTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "getTableClient1", connTsk, table1ParamTsk, sql.GetTableClient)
 	query1ParamTsk := asyncjob.InputParam(bCtx, job, "query1", &sql.Params.Query1)
-	qery1ResultTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.Params.RetryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask))
+	qery1ResultTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask))
 
 	table2ParamTsk := asyncjob.InputParam(bCtx, job, "table2", &sql.Params.Table2)
 	table2ClientTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "getTableClient2", connTsk, table2ParamTsk, sql.GetTableClient)
 	query2ParamTsk := asyncjob.InputParam(bCtx, job, "query2", &sql.Params.Query2)
-	qery2ResultTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.Params.RetryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask))
+	qery2ResultTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask))
 
 	summaryTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, sql.SummarizeQueryResult)
 	asyncjob.AddStep(bCtx, job, "emailNotification", asynctask.ActionToFunc(sql.EmailNotification), asyncjob.ExecuteAfter(summaryTsk))

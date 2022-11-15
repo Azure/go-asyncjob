@@ -15,14 +15,13 @@ func TestSimpleJob(t *testing.T) {
 	t.Parallel()
 	sb := &SqlSummaryJobLib{
 		Params: &SqlSummaryJobParameters{
-			Table1:        "table1",
-			Query1:        "query1",
-			Table2:        "table2",
-			Query2:        "query2",
-			RetryPolicies: map[string]asyncjob.RetryPolicy{},
+			Table1: "table1",
+			Query1: "query1",
+			Table2: "table2",
+			Query2: "query2",
 		},
 	}
-	jb := sb.BuildJob(context.Background())
+	jb := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
 
 	jb.Start(context.Background())
 	jobErr := jb.Wait(context.Background())
@@ -41,10 +40,9 @@ func TestSimpleJobError(t *testing.T) {
 			Table2:         "table2",
 			Query2:         "query2",
 			ErrorInjection: map[string]func() error{"ExecuteQuery.query2": getErrorFunc(fmt.Errorf("table2 schema error"), 1)},
-			RetryPolicies:  map[string]asyncjob.RetryPolicy{},
 		},
 	}
-	jb := sb.BuildJob(context.Background())
+	jb := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
 
 	jb.Start(context.Background())
 	jb.Wait(context.Background())
@@ -71,14 +69,13 @@ func TestSimpleJobPanic(t *testing.T) {
 				"GetConnection":            getErrorFunc(fmt.Errorf("InternalServerError"), 1),
 				"ExecuteQuery.panicQuery1": getPanicFunc(4),
 			},
-			RetryPolicies: map[string]asyncjob.RetryPolicy{
-				"CheckAuth":     linearRetry, // coverage for AddStep
-				"GetConnection": linearRetry, // coverage for StepAfter
-				"QueryTable1":   linearRetry, // coverage for StepAfterBoth
-			},
 		},
 	}
-	jb := sb.BuildJob(context.Background())
+	jb := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{
+		"CheckAuth":     linearRetry, // coverage for AddStep
+		"GetConnection": linearRetry, // coverage for StepAfter
+		"QueryTable1":   linearRetry, // coverage for StepAfterBoth
+	})
 
 	jb.Start(context.Background())
 	jobErr := jb.Wait(context.Background())
