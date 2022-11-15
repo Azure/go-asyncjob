@@ -224,7 +224,7 @@ func StepAfter[T, S any](bCtx context.Context, j JobInterface, stepName string, 
 	return step, nil
 }
 
-func StepAfterV2[T, S any](bCtx context.Context, j JobDefinitionMeta, stepName string, parentStep *StepInfo[T], stepFunc asynctask.ContinueFunc[T, S], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[S], error) {
+func StepAfterV2[T, S any](bCtx context.Context, j JobDefinitionMeta, stepName string, parentStep *StepDefinition[T], stepFunc asynctask.ContinueFunc[T, S], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[S], error) {
 	step := newStepDefinition[S](stepName, stepTypeTask, optionDecorators...)
 
 	// also consider specified the dependencies from ExecutionOptionPreparer, without consume the result.
@@ -368,7 +368,7 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j JobInterface, stepName s
 	return step, nil
 }
 
-func StepAfterBothV2[T, S, R any](bCtx context.Context, j JobDefinitionMeta, stepName string, parentStepT *StepInfo[T], parentStepS *StepInfo[S], stepFunc asynctask.AfterBothFunc[T, S, R], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[R], error) {
+func StepAfterBothV2[T, S, R any](bCtx context.Context, j JobDefinitionMeta, stepName string, parentStepT *StepDefinition[T], parentStepS *StepDefinition[S], stepFunc asynctask.AfterBothFunc[T, S, R], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[R], error) {
 	step := newStepDefinition[R](stepName, stepTypeTask, optionDecorators...)
 
 	// also consider specified the dependencies from ExecutionOptionPreparer, without consume the result.

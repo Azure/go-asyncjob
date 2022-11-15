@@ -107,6 +107,37 @@ func (sql *SqlSummaryJobLib) EmailNotification(ctx context.Context) error {
 	return nil
 }
 
+func (sql *SqlSummaryJobLib) BuildJobV2(bCtx context.Context) *asyncjob.JobDefinition[SqlSummaryJobParameters] {
+	job := asyncjob.NewJobDefinition[SqlSummaryJobParameters]("sqlSummaryJobV2")
+	serverNameParamTask, _ := asyncjob.StepAfterV2(bCtx, job, "serverName", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
+		return &input.ServerName, nil
+	})
+	connTsk, _ := asyncjob.StepAfterV2(bCtx, job, "GetConnection", serverNameParamTask, sql.GetConnection)
+	checkAuthTask, _ := asyncjob.AddStepV2(bCtx, job, "CheckAuth", asynctask.ActionToFunc(sql.CheckAuth))
+
+	table1ParamTsk, _ := asyncjob.StepAfterV2(bCtx, job, "table1", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
+		return &input.Table1, nil
+	})
+	table1ClientTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "getTableClient1", connTsk, table1ParamTsk, sql.GetTableClient)
+	query1ParamTsk, _ := asyncjob.StepAfterV2(bCtx, job, "query1", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
+		return &input.Query1, nil
+	})
+	qery1ResultTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.Params.RetryPolicies["QueryTable1"]), asyncjob.ExecuteAfterV2(checkAuthTask))
+
+	table2ParamTsk, _ := asyncjob.StepAfterV2(bCtx, job, "table2", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
+		return &input.Table2, nil
+	})
+	table2ClientTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "getTableClient2", connTsk, table2ParamTsk, sql.GetTableClient)
+	query2ParamTsk, _ := asyncjob.StepAfterV2(bCtx, job, "query2", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
+		return &input.Query2, nil
+	})
+	qery2ResultTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.Params.RetryPolicies["QueryTable2"]), asyncjob.ExecuteAfterV2(checkAuthTask))
+
+	summaryTsk, _ := asyncjob.StepAfterBothV2(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, sql.SummarizeQueryResult)
+	asyncjob.AddStepV2(bCtx, job, "emailNotification", asynctask.ActionToFunc(sql.EmailNotification), asyncjob.ExecuteAfterV2(summaryTsk))
+	return job
+}
+
 func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context) *asyncjob.Job {
 	job := asyncjob.NewJob("sqlSummaryJob")
 

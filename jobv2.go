@@ -28,7 +28,7 @@ func NewJobDefinition[T any](name string) *JobDefinition[T] {
 		stepsDag: graph.NewGraph[StepDefinitionMeta](connectStepDefinition),
 	}
 
-	rootStep := newStepDefinition[T](rootStepName, stepTypeRoot)
+	rootStep := newStepDefinition[T](name, stepTypeRoot)
 	j.rootStep = rootStep
 
 	j.steps[j.rootStep.GetName()] = j.rootStep
@@ -48,7 +48,7 @@ func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T]
 	ji.rootStep.task = asynctask.NewCompletedTask[T](input)
 
 	for stepDefName, stepDef := range jd.steps {
-		if stepDefName == rootStepName {
+		if stepDefName == jd.Name {
 			continue
 		}
 		ji.steps[stepDefName] = stepDef.CreateStepInstance(ctx, ji)
@@ -58,6 +58,10 @@ func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T]
 }
 
 func (jd *JobDefinition[T]) RootStep() StepDefinitionMeta {
+	return jd.rootStep
+}
+
+func (jd *JobDefinition[T]) RootStepStrongTyped() *StepDefinition[T] {
 	return jd.rootStep
 }
 
