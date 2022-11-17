@@ -1,5 +1,7 @@
 github.com/Azure/go-asynctask v1.3.0 h1:QBx9mGbGi4Urz4YeZ3o1c7cLGL4iUch+mGgNGupTLMI=
 github.com/Azure/go-asynctask v1.3.0/go.mod h1:S1Ee5SVnt6ZUJ84brodPiHvoNfN2wgDyVO7UYTI5WeM=
+github.com/Azure/go-asynctask v1.3.1 h1:zE/7Zwbdg7/+V2kRKb3IV4RTqmn8DUKriVzXcNq7ubg=
+github.com/Azure/go-asynctask v1.3.1/go.mod h1:S1Ee5SVnt6ZUJ84brodPiHvoNfN2wgDyVO7UYTI5WeM=
 github.com/corona10/goimagehash v1.0.2/go.mod h1:/l9umBhvcHQXVtQO1V6Gp1yD20STawkhRnnX0D1bvVI=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
