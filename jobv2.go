@@ -86,6 +86,10 @@ func (jd *JobDefinition[T]) AddStep(step StepDefinitionMeta, precedingSteps ...S
 	}
 }
 
+func (jd *JobDefinition[T]) Visualize() (string, error) {
+	return jd.stepsDag.ToDotGraph()
+}
+
 type JobInstanceMeta interface {
 	GetStepInstance(stepName string) (StepInstanceMeta, bool)
 	AddStepInstance(step StepInstanceMeta, precedingSteps ...StepInstanceMeta)

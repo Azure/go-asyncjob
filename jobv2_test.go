@@ -2,6 +2,7 @@ package asyncjob_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/Azure/go-asyncjob"
@@ -15,6 +16,7 @@ func TestSimpleJobV2(t *testing.T) {
 	}
 
 	jb := sb.BuildJobV2(context.Background(), map[string]asyncjob.RetryPolicy{})
+	renderGraphV2(jb) // got bug in stepBuilderV2
 
 	jobInstance := jb.Start(context.Background(), &SqlSummaryJobParameters{
 		Table1: "table1",
@@ -24,4 +26,14 @@ func TestSimpleJobV2(t *testing.T) {
 	})
 	jobErr := jobInstance.Wait(context.Background())
 	assert.NoError(t, jobErr)
+}
+
+func renderGraphV2[T any](jb *asyncjob.JobDefinition[T]) error {
+	graphStr, err := jb.Visualize()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(graphStr)
+	return nil
 }
