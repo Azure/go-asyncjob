@@ -3,11 +3,19 @@ package asyncjob_test
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/go-asynctask"
 	"testing"
 
 	"github.com/Azure/go-asyncjob"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestAsyncTaskWaitAll(t *testing.T) {
+	t.Parallel()
+
+	err := asynctask.WaitAll(context.Background(), &asynctask.WaitAllOptions{}, []asynctask.Waitable{}...)
+	assert.NoError(t, err)
+}
 
 func TestSimpleJobV2(t *testing.T) {
 	t.Parallel()

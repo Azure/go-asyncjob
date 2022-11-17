@@ -2,7 +2,6 @@ package asyncjob
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/Azure/go-asyncjob/graph"
@@ -52,13 +51,11 @@ func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T]
 
 	orderedSteps := jd.stepsDag.TopologicalSort()
 	for _, stepDef := range orderedSteps {
-		fmt.Println(stepDef.GetName())
-		/*
-			if stepDef.GetName() == jd.Name {
-				continue
-			}
-			ji.steps[stepDef.GetName()] = stepDef.CreateStepInstance(ctx, ji)
-		*/
+		if stepDef.GetName() == jd.Name {
+			continue
+		}
+		ji.steps[stepDef.GetName()] = stepDef.CreateStepInstance(ctx, ji)
+
 	}
 
 	return ji
@@ -122,6 +119,10 @@ func (ji *JobInstance[T]) AddStepInstance(step StepInstanceMeta, precedingSteps 
 	*/
 }
 
-func (ji *JobInstance[T]) Wait(context.Context) error {
-	return nil
+func (ji *JobInstance[T]) Wait(ctx context.Context) error {
+	var tasks []asynctask.Waitable
+	for _, step := range ji.steps {
+		tasks = append(tasks, step.Waitable())
+	}
+	return asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, tasks...)
 }
