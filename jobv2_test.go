@@ -16,8 +16,7 @@ func TestSimpleJobV2(t *testing.T) {
 	}
 
 	jb := sb.BuildJobV2(context.Background(), map[string]asyncjob.RetryPolicy{})
-	renderGraphV2(jb) // got bug in stepBuilderV2
-
+	renderGraphV2(jb)
 	jobInstance := jb.Start(context.Background(), &SqlSummaryJobParameters{
 		Table1: "table1",
 		Query1: "query1",

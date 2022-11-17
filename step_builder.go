@@ -225,7 +225,12 @@ func StepAfter[T, S any](bCtx context.Context, j JobInterface, stepName string, 
 }
 
 func StepAfterV2[T, S any](bCtx context.Context, j JobDefinitionMeta, stepName string, parentStep *StepDefinition[T], stepFunc asynctask.ContinueFunc[T, S], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[S], error) {
-	step := newStepDefinition[S](stepName, stepTypeTask, optionDecorators...)
+	// check parentStepT is in this job
+	if get, ok := j.GetStep(parentStep.GetName()); !ok || get != parentStep {
+		return nil, fmt.Errorf("step [%s] not found in job", parentStep.GetName())
+	}
+
+	step := newStepDefinition[S](stepName, stepTypeTask, append(optionDecorators, ExecuteAfterV2(parentStep))...)
 
 	// also consider specified the dependencies from ExecutionOptionPreparer, without consume the result.
 
@@ -369,7 +374,15 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j JobInterface, stepName s
 }
 
 func StepAfterBothV2[T, S, R any](bCtx context.Context, j JobDefinitionMeta, stepName string, parentStepT *StepDefinition[T], parentStepS *StepDefinition[S], stepFunc asynctask.AfterBothFunc[T, S, R], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[R], error) {
-	step := newStepDefinition[R](stepName, stepTypeTask, optionDecorators...)
+	// check parentStepT is in this job
+	if get, ok := j.GetStep(parentStepT.GetName()); !ok || get != parentStepT {
+		return nil, fmt.Errorf("step [%s] not found in job", parentStepT.GetName())
+	}
+	if get, ok := j.GetStep(parentStepS.GetName()); !ok || get != parentStepS {
+		return nil, fmt.Errorf("step [%s] not found in job", parentStepS.GetName())
+	}
+
+	step := newStepDefinition[R](stepName, stepTypeTask, append(optionDecorators, ExecuteAfterV2(parentStepT), ExecuteAfterV2(parentStepS))...)
 
 	// also consider specified the dependencies from ExecutionOptionPreparer, without consume the result.
 	var precedingDefSteps []StepDefinitionMeta
