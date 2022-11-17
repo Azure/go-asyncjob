@@ -54,21 +54,21 @@ func (sd *StepDefinition[T]) CreateStepInstance(ctx context.Context, jobInstance
 
 func (sd *StepDefinition[T]) DotSpec() *graph.DotNodeSpec {
 	return &graph.DotNodeSpec{
-		ID:        sd.GetName(),
-		Name:      sd.GetName(),
-		Shape:     "box",
-		Style:     "filled",
-		FillColor: "gray",
-		Tooltip:   "",
+		Name:        sd.GetName(),
+		DisplayName: sd.GetName(),
+		Shape:       "box",
+		Style:       "filled",
+		FillColor:   "gray",
+		Tooltip:     "",
 	}
 }
 
 func connectStepDefinition(stepFrom, stepTo StepDefinitionMeta) *graph.DotEdgeSpec {
 	edgeSpec := &graph.DotEdgeSpec{
-		FromNodeID: stepFrom.GetName(),
-		ToNodeID:   stepTo.GetName(),
-		Color:      "black",
-		Style:      "bold",
+		FromNodeName: stepFrom.GetName(),
+		ToNodeName:   stepTo.GetName(),
+		Color:        "black",
+		Style:        "bold",
 	}
 
 	return edgeSpec

@@ -2,7 +2,6 @@ package asyncjob
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Azure/go-asynctask"
 )
@@ -29,7 +28,6 @@ type StepMeta interface {
 	ExecutionPolicy() *StepExecutionOptions
 	ExecutionData() *StepExecutionData
 	getType() stepType
-	getID() string
 }
 
 type StepInfo[T any] struct {
@@ -90,8 +88,4 @@ func (si *StepInfo[T]) ExecutionData() *StepExecutionData {
 
 func (si *StepInfo[T]) getType() stepType {
 	return si.stepType
-}
-
-func (sn *StepInfo[T]) getID() string {
-	return fmt.Sprintf("%s_%s", sn.getType(), sn.GetName())
 }

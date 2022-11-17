@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/go-asyncjob"
 	"github.com/goccy/go-graphviz"
+	"github.com/goccy/go-graphviz/cgraph"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -95,9 +96,44 @@ func renderGraph(jb *asyncjob.Job) error {
 
 	fmt.Println(graphStr)
 
-	_, err = graphviz.ParseBytes([]byte(graphStr))
+	graph, err := graphviz.ParseBytes([]byte(graphStr))
 	if err != nil {
 		return err
+	}
+
+	traverseGraph(graph, "root_sqlSummaryJob", func(node *cgraph.Node) {
+		fmt.Println(node.Name())
+	})
+
+	return nil
+}
+
+func traverseGraph(graph *cgraph.Graph, rootNodeName string, nodeActor func(*cgraph.Node)) error {
+	numberOfNodes := graph.NumberNodes()
+	if numberOfNodes < 1 {
+		return nil
+	}
+
+	dict := graph.NSeq()
+	fmt.Println(dict)
+
+	rootNode, err := graph.Node(rootNodeName)
+	if err != nil {
+		return err
+	}
+
+	visitedNodes := make(map[*cgraph.Node]bool, numberOfNodes)
+	nodeToVisit := make(chan *cgraph.Node, numberOfNodes)
+	nodeToVisit <- rootNode
+	for node := range nodeToVisit {
+		if !visitedNodes[node] {
+			nodeActor(node)
+			visitedNodes[node] = true
+
+			for edge := graph.FirstOut(node); edge != nil; edge = graph.NextOut(edge) {
+				nodeToVisit <- edge.Node()
+			}
+		}
 	}
 
 	return nil

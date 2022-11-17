@@ -2,10 +2,11 @@ package asyncjob
 
 import (
 	"context"
-	"github.com/Azure/go-asynctask"
+	"fmt"
 	"sync"
 
 	"github.com/Azure/go-asyncjob/graph"
+	"github.com/Azure/go-asynctask"
 )
 
 type JobDefinitionMeta interface {
@@ -49,11 +50,15 @@ func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T]
 	ji.rootStep.task = asynctask.NewCompletedTask[T](input)
 	ji.steps[ji.rootStep.GetName()] = ji.rootStep
 
-	for stepDefName, stepDef := range jd.steps {
-		if stepDefName == jd.Name {
-			continue
-		}
-		ji.steps[stepDefName] = stepDef.CreateStepInstance(ctx, ji)
+	orderedSteps := jd.stepsDag.TopologicalSort()
+	for _, stepDef := range orderedSteps {
+		fmt.Println(stepDef.GetName())
+		/*
+			if stepDef.GetName() == jd.Name {
+				continue
+			}
+			ji.steps[stepDef.GetName()] = stepDef.CreateStepInstance(ctx, ji)
+		*/
 	}
 
 	return ji

@@ -17,14 +17,18 @@ func newStepNode(sm StepMeta) *stepNode {
 	}
 }
 
+func (sn *stepNode) getID() string {
+	return fmt.Sprintf("%s_%s", sn.getType(), sn.GetName())
+}
+
 func (sn *stepNode) DotSpec() *graph.DotNodeSpec {
 	return &graph.DotNodeSpec{
-		ID:        sn.getID(),
-		Name:      sn.GetName(),
-		Shape:     sn.getShape(),
-		Style:     "filled",
-		FillColor: sn.getFillColor(),
-		Tooltip:   sn.getTooltip(),
+		Name:        sn.getID(),
+		DisplayName: sn.GetName(),
+		Shape:       sn.getShape(),
+		Style:       "filled",
+		FillColor:   sn.getFillColor(),
+		Tooltip:     sn.getTooltip(),
 	}
 }
 
@@ -69,10 +73,10 @@ func (sn *stepNode) getTooltip() string {
 
 func stepConn(snFrom, snTo *stepNode) *graph.DotEdgeSpec {
 	edgeSpec := &graph.DotEdgeSpec{
-		FromNodeID: snFrom.getID(),
-		ToNodeID:   snTo.getID(),
-		Color:      "black",
-		Style:      "bold",
+		FromNodeName: snFrom.getID(),
+		ToNodeName:   snTo.getID(),
+		Color:        "black",
+		Style:        "bold",
 	}
 
 	// update edge color, tooltip if NodeTo is started already.

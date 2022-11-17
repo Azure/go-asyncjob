@@ -7,6 +7,9 @@ import (
 
 // NodeConstrain is a constraint for a node in a graph
 type NodeConstrain interface {
+	// Name of the node, should be unique in the graph
+	GetName() string
+	// DotSpec returns the dot spec for this node
 	DotSpec() *DotNodeSpec
 }
 
@@ -20,21 +23,23 @@ type Edge[NT NodeConstrain] struct {
 
 // DotNodeSpec is the specification for a node in a DOT graph
 type DotNodeSpec struct {
-	ID        string
-	Name      string
-	Tooltip   string
-	Shape     string
-	Style     string
-	FillColor string
+	// id of the node
+	Name string
+	// display text of the node
+	DisplayName string
+	Tooltip     string
+	Shape       string
+	Style       string
+	FillColor   string
 }
 
 // DotEdgeSpec is the specification for an edge in DOT graph
 type DotEdgeSpec struct {
-	FromNodeID string
-	ToNodeID   string
-	Tooltip    string
-	Style      string
-	Color      string
+	FromNodeName string
+	ToNodeName   string
+	Tooltip      string
+	Style        string
+	Color        string
 }
 
 // Graph hold the nodes and edges of a graph
@@ -55,7 +60,7 @@ func NewGraph[NT NodeConstrain](edgeSpecFunc EdgeSpecFunc[NT]) *Graph[NT] {
 
 // AddNode adds a node to the graph
 func (g *Graph[NT]) AddNode(n NT) error {
-	nodeKey := n.DotSpec().ID
+	nodeKey := n.GetName()
 	if _, ok := g.nodes[nodeKey]; ok {
 		return NewGraphError(ErrDuplicateNode, fmt.Sprintf("node with key %s already exists in this graph", nodeKey))
 	}
@@ -65,8 +70,8 @@ func (g *Graph[NT]) AddNode(n NT) error {
 }
 
 func (g *Graph[NT]) Connect(from, to NT) error {
-	fromNodeKey := from.DotSpec().ID
-	toNodeKey := to.DotSpec().ID
+	fromNodeKey := from.GetName()
+	toNodeKey := to.GetName()
 	var ok bool
 	if from, ok = g.nodes[fromNodeKey]; !ok {
 		return NewGraphError(ErrConnectNotExistingNode, fmt.Sprintf("cannot connect node %s, it's not added in this graph yet", fromNodeKey))
@@ -102,7 +107,30 @@ func (g *Graph[NT]) ToDotGraph() (string, error) {
 	return buf.String(), nil
 }
 
-type templateRef struct {
-	Nodes []*DotNodeSpec
-	Edges []*DotEdgeSpec
+func (g *Graph[NT]) TopologicalSort() []NT {
+	visited := make(map[string]bool)
+	stack := make([]NT, 0)
+
+	for _, node := range g.nodes {
+		if !visited[node.GetName()] {
+			g.topologicalSortInternal(node, &visited, &stack)
+		}
+	}
+	return stack
+}
+
+func (g *Graph[NT]) topologicalSortInternal(node NT, visited *map[string]bool, stack *[]NT) {
+	(*visited)[node.GetName()] = true
+	for _, edge := range g.nodeEdges[node.GetName()] {
+		if !(*visited)[edge.To.GetName()] {
+			g.topologicalSortInternal(edge.To, visited, stack)
+		}
+	}
+	*stack = append([]NT{node}, *stack...)
+}
+
+type orderedset struct {
+	indexes map[string]int
+	items   []string
+	length  int
 }
