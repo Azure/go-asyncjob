@@ -42,7 +42,7 @@ type SummarizedResult struct {
 
 func (sql *SqlSummaryJobLib) GetConnection(ctx context.Context, serverName *string) (*SqlConnection, error) {
 	fmt.Println("GetConnection")
-	if sql.Params.ErrorInjection != nil {
+	if sql.Params != nil && sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection[fmt.Sprintf("GetConnection.%s", *serverName)]; ok {
 			if err := errFunc(); err != nil {
 				return nil, err
@@ -54,7 +54,7 @@ func (sql *SqlSummaryJobLib) GetConnection(ctx context.Context, serverName *stri
 
 func (sql *SqlSummaryJobLib) GetTableClient(ctx context.Context, conn *SqlConnection, tableName *string) (*SqlTableClient, error) {
 	fmt.Println("GetTableClient with tableName:", *tableName)
-	if sql.Params.ErrorInjection != nil {
+	if sql.Params != nil && sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection[fmt.Sprintf("GetTableClient.%s", *tableName)]; ok {
 			if err := errFunc(); err != nil {
 				return nil, err
@@ -65,7 +65,7 @@ func (sql *SqlSummaryJobLib) GetTableClient(ctx context.Context, conn *SqlConnec
 }
 
 func (sql *SqlSummaryJobLib) CheckAuth(ctx context.Context) error {
-	if sql.Params.ErrorInjection != nil {
+	if sql.Params != nil && sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection["CheckAuth"]; ok {
 			if err := errFunc(); err != nil {
 				return err
@@ -78,7 +78,7 @@ func (sql *SqlSummaryJobLib) CheckAuth(ctx context.Context) error {
 
 func (sql *SqlSummaryJobLib) ExecuteQuery(ctx context.Context, tableClient *SqlTableClient, queryString *string) (*SqlQueryResult, error) {
 	fmt.Println("ExecuteQuery: ", *queryString)
-	if sql.Params.ErrorInjection != nil {
+	if sql.Params != nil && sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection[fmt.Sprintf("ExecuteQuery.%s", *queryString)]; ok {
 			if err := errFunc(); err != nil {
 				return nil, err
@@ -91,7 +91,7 @@ func (sql *SqlSummaryJobLib) ExecuteQuery(ctx context.Context, tableClient *SqlT
 
 func (sql *SqlSummaryJobLib) SummarizeQueryResult(ctx context.Context, result1 *SqlQueryResult, result2 *SqlQueryResult) (*SummarizedResult, error) {
 	fmt.Println("SummarizeQueryResult")
-	if sql.Params.ErrorInjection != nil {
+	if sql.Params != nil && sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection["SummarizeQueryResult"]; ok {
 			if err := errFunc(); err != nil {
 				return nil, err

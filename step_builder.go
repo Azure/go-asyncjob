@@ -107,6 +107,7 @@ func AddStepV2[ST any](bCtx context.Context, j JobDefinitionMeta, stepName strin
 	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
 	if len(precedingDefSteps) == 0 {
 		precedingDefSteps = append(precedingDefSteps, j.RootStep())
+		step.executionOptions.DependOn = append(step.executionOptions.DependOn, j.RootStep().GetName())
 	}
 
 	step.instanceCreator = func(ctx context.Context, ji JobInstanceMeta) StepInstanceMeta {
