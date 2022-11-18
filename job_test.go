@@ -9,14 +9,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSimpleJobV2(t *testing.T) {
+func TestSimpleJob(t *testing.T) {
 	t.Parallel()
 	sb := &SqlSummaryJobLib{
 		Params: nil,
 	}
 
 	jb := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
-	renderGraphV2(jb)
+	renderGraph(jb)
 	jobInstance := jb.Start(context.Background(), &SqlSummaryJobParameters{
 		Table1: "table1",
 		Query1: "query1",
@@ -27,7 +27,7 @@ func TestSimpleJobV2(t *testing.T) {
 	assert.NoError(t, jobErr)
 }
 
-func renderGraphV2[T any](jb *asyncjob.JobDefinition[T]) error {
+func renderGraph[T any](jb *asyncjob.JobDefinition[T]) error {
 	graphStr, err := jb.Visualize()
 	if err != nil {
 		return err

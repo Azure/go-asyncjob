@@ -107,7 +107,7 @@ func (sql *SqlSummaryJobLib) EmailNotification(ctx context.Context) error {
 }
 
 func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) *asyncjob.JobDefinition[SqlSummaryJobParameters] {
-	job := asyncjob.NewJobDefinition[SqlSummaryJobParameters]("sqlSummaryJobV2")
+	job := asyncjob.NewJobDefinition[SqlSummaryJobParameters]("sqlSummaryJob")
 	serverNameParamTask, _ := asyncjob.StepAfter(bCtx, job, "serverName", job.RootStepStrongTyped(), func(_ context.Context, input *SqlSummaryJobParameters) (*string, error) {
 		return &input.ServerName, nil
 	})
