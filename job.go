@@ -2,9 +2,7 @@ package asyncjob
 
 import (
 	"context"
-	"fmt"
 	"sync"
-	"time"
 
 	"github.com/Azure/go-asyncjob/graph"
 	"github.com/Azure/go-asynctask"
@@ -16,106 +14,121 @@ const JobStatePending JobState = "pending"
 const JobStateRunning JobState = "running"
 const JobStateCompleted JobState = "completed"
 
-type JobInterface interface {
-	GetStep(stepName string) (StepMeta, bool) // switch bool to error
-	AddStep(step StepMeta, precedingSteps ...StepMeta)
-	RootStep() *StepInfo[interface{}]
-
-	Start(ctx context.Context) error
-
-	RuntimeContext() context.Context
+type JobDefinitionMeta interface {
+	GetStep(stepName string) (StepDefinitionMeta, bool) // switch bool to error
+	AddStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta)
+	RootStep() StepDefinitionMeta
 }
 
-type Job struct {
-	Name  string
-	Steps map[string]StepMeta
-
-	state    JobState
-	rootStep *StepInfo[interface{}]
-	jobStart *sync.WaitGroup
-	stepsDag *graph.Graph[*stepNode]
-
-	// runtimeCtx is captured to separate build context and runtime context.
-	// golang not recommending to store context in the struct. I don't have better idea.
-	runtimeCtx context.Context
+type JobDefinition[T any] struct {
+	Name     string
+	steps    map[string]StepDefinitionMeta
+	stepsDag *graph.Graph[StepDefinitionMeta]
+	rootStep *StepDefinition[T]
 }
 
-var _ JobInterface = &Job{}
-
-func NewJob(name string) *Job {
-	jobStart := sync.WaitGroup{}
-	jobStart.Add(1)
-	j := &Job{
-		Name:  name,
-		Steps: make(map[string]StepMeta),
-
-		jobStart: &jobStart,
-		state:    JobStatePending,
-		stepsDag: graph.NewGraph[*stepNode](stepConn),
+func NewJobDefinition[T any](name string) *JobDefinition[T] {
+	j := &JobDefinition[T]{
+		Name:     name,
+		steps:    make(map[string]StepDefinitionMeta),
+		stepsDag: graph.NewGraph[StepDefinitionMeta](connectStepDefinition),
 	}
 
-	rootStep := newStepInfo[interface{}](name, stepTypeRoot)
-	rootJobFunc := func(ctx context.Context) (*interface{}, error) {
-		// this will pause all steps from starting, until Start() method is called.
-		jobStart.Wait()
-		j.rootStep.executionData.StartTime = time.Now()
-		j.state = JobStateRunning
-		j.rootStep.state = StepStateCompleted
-		j.rootStep.executionData.Duration = time.Since(j.rootStep.executionData.StartTime)
-		return nil, nil
-	}
-
-	rootStep.task = asynctask.Start(context.Background(), rootJobFunc)
+	rootStep := newStepDefinition[T](name, stepTypeRoot)
 	j.rootStep = rootStep
 
-	j.Steps[j.rootStep.GetName()] = j.rootStep
-	j.stepsDag.AddNode(newStepNode(j.rootStep))
+	j.steps[j.rootStep.GetName()] = j.rootStep
+	j.stepsDag.AddNode(j.rootStep)
 
 	return j
 }
 
-func (j *Job) RootStep() *StepInfo[interface{}] {
-	return j.rootStep
+func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T] {
+	// TODO: build job instance
+	ji := &JobInstance[T]{
+		definition: jd,
+		input:      input,
+		state:      JobStateRunning,
+		steps:      map[string]StepInstanceMeta{},
+	}
+	ji.rootStep = newStepInstance(jd.rootStep)
+	ji.rootStep.task = asynctask.NewCompletedTask[T](input)
+	ji.steps[ji.rootStep.GetName()] = ji.rootStep
+
+	orderedSteps := jd.stepsDag.TopologicalSort()
+	for _, stepDef := range orderedSteps {
+		if stepDef.GetName() == jd.Name {
+			continue
+		}
+		ji.steps[stepDef.GetName()] = stepDef.CreateStepInstance(ctx, ji)
+
+	}
+
+	return ji
 }
 
-func (j *Job) GetStep(stepName string) (StepMeta, bool) {
-	stepMeta, ok := j.Steps[stepName]
+func (jd *JobDefinition[T]) RootStep() StepDefinitionMeta {
+	return jd.rootStep
+}
+
+func (jd *JobDefinition[T]) RootStepStrongTyped() *StepDefinition[T] {
+	return jd.rootStep
+}
+
+func (jd *JobDefinition[T]) GetStep(stepName string) (StepDefinitionMeta, bool) {
+	stepMeta, ok := jd.steps[stepName]
 	return stepMeta, ok
 }
 
-func (j *Job) AddStep(step StepMeta, precedingSteps ...StepMeta) {
+func (jd *JobDefinition[T]) AddStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta) {
 	// TODO: check conflict
-	j.Steps[step.GetName()] = step
-	stepNode := newStepNode(step)
-	j.stepsDag.AddNode(stepNode)
+	jd.steps[step.GetName()] = step
+	jd.stepsDag.AddNode(step)
 	for _, precedingStep := range precedingSteps {
-		j.stepsDag.Connect(newStepNode(precedingStep), stepNode)
+		jd.stepsDag.Connect(precedingStep, step)
 	}
 }
 
-func (j *Job) Start(ctx context.Context) error {
-	// TODO: lock Steps, no modification to job execution graph
-	j.jobStart.Done()
-	j.runtimeCtx = ctx
-	if err := j.rootStep.Wait(ctx); err != nil {
-		return fmt.Errorf("root job %s failed: %w", j.rootStep.name, err)
-	}
-	return nil
+func (jd *JobDefinition[T]) Visualize() (string, error) {
+	return jd.stepsDag.ToDotGraph()
 }
 
-func (j *Job) RuntimeContext() context.Context {
-	return j.runtimeCtx
+type JobInstanceMeta interface {
+	GetStepInstance(stepName string) (StepInstanceMeta, bool)
+	AddStepInstance(step StepInstanceMeta, precedingSteps ...StepInstanceMeta)
+	Wait(context.Context) error
 }
 
-func (j *Job) Wait(ctx context.Context) error {
+type JobInstance[T any] struct {
+	input      *T
+	definition *JobDefinition[T]
+	state      JobState
+	jobStart   *sync.WaitGroup
+	rootStep   *StepInstance[T]
+	steps      map[string]StepInstanceMeta
+	// stepdag
+}
+
+func (ji *JobInstance[T]) GetStepInstance(stepName string) (StepInstanceMeta, bool) {
+	stepMeta, ok := ji.steps[stepName]
+	return stepMeta, ok
+}
+
+func (ji *JobInstance[T]) AddStepInstance(step StepInstanceMeta, precedingSteps ...StepInstanceMeta) {
+	// TODO: check conflict
+	ji.steps[step.GetName()] = step
+	/*
+		ji.stepsDag.AddNode(step)
+		for _, precedingStep := range precedingSteps {
+			jd.stepsDag.Connect(precedingStep, step)
+		}
+	*/
+}
+
+func (ji *JobInstance[T]) Wait(ctx context.Context) error {
 	var tasks []asynctask.Waitable
-	for _, step := range j.Steps {
+	for _, step := range ji.steps {
 		tasks = append(tasks, step.Waitable())
 	}
 	return asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, tasks...)
-}
-
-// Visualize return a DAG of the job execution graph
-func (j *Job) Visualize() (string, error) {
-	return j.stepsDag.ToDotGraph()
 }

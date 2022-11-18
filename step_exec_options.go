@@ -29,16 +29,7 @@ type ExecutionOptionPreparer func(*StepExecutionOptions) *StepExecutionOptions
 
 // Add precedence to a step.
 //   without taking input from it(use StepAfter/StepAfterBoth otherwise)
-func ExecuteAfterV2(step StepDefinitionMeta) ExecutionOptionPreparer {
-	return func(options *StepExecutionOptions) *StepExecutionOptions {
-		options.DependOn = append(options.DependOn, step.GetName())
-		return options
-	}
-}
-
-// Add precedence to a step.
-//   without taking input from it(use StepAfter/StepAfterBoth otherwise)
-func ExecuteAfter(step StepMeta) ExecutionOptionPreparer {
+func ExecuteAfter(step StepDefinitionMeta) ExecutionOptionPreparer {
 	return func(options *StepExecutionOptions) *StepExecutionOptions {
 		options.DependOn = append(options.DependOn, step.GetName())
 		return options
