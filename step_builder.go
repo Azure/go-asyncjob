@@ -8,6 +8,12 @@ import (
 	"github.com/Azure/go-asynctask"
 )
 
+// StepFromJobInput: steps that consumes job input
+func StepFromJobInput[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFunc asynctask.ContinueFunc[JT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	return StepAfter[JT, ST](bCtx, j, stepName, j.rootStep, stepFunc, optionDecorators...)
+}
+
+// AddStep: add a step without take input
 func AddStep[ST any](bCtx context.Context, j JobDefinitionMeta, stepName string, stepFunc asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
 	step := newStepDefinition[ST](stepName, stepTypeTask, optionDecorators...)
 
@@ -79,6 +85,7 @@ func AddStep[ST any](bCtx context.Context, j JobDefinitionMeta, stepName string,
 	return step, nil
 }
 
+// StepAfter: add a step after a preceding step, also take input from that preceding step
 func StepAfter[T, S any](bCtx context.Context, j JobDefinitionMeta, stepName string, parentStep *StepDefinition[T], stepFunc asynctask.ContinueFunc[T, S], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[S], error) {
 	// check parentStepT is in this job
 	if get, ok := j.GetStep(parentStep.GetName()); !ok || get != parentStep {
@@ -159,6 +166,7 @@ func StepAfter[T, S any](bCtx context.Context, j JobDefinitionMeta, stepName str
 	return step, nil
 }
 
+// StepAfterBoth: add a step after both preceding steps, also take input from both preceding steps
 func StepAfterBoth[T, S, R any](bCtx context.Context, j JobDefinitionMeta, stepName string, parentStepT *StepDefinition[T], parentStepS *StepDefinition[S], stepFunc asynctask.AfterBothFunc[T, S, R], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[R], error) {
 	// check parentStepT is in this job
 	if get, ok := j.GetStep(parentStepT.GetName()); !ok || get != parentStepT {

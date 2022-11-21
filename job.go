@@ -71,10 +71,6 @@ func (jd *JobDefinition[T]) RootStep() StepDefinitionMeta {
 	return jd.rootStep
 }
 
-func (jd *JobDefinition[T]) RootStepStrongTyped() *StepDefinition[T] {
-	return jd.rootStep
-}
-
 func (jd *JobDefinition[T]) GetStep(stepName string) (StepDefinitionMeta, bool) {
 	stepMeta, ok := jd.steps[stepName]
 	return stepMeta, ok
