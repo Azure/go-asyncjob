@@ -37,6 +37,9 @@ func NewJobDefinition[T any](name string) *JobDefinition[T] {
 	return j
 }
 
+// Start execution of the job definition.
+//   this will create and return new instance of the job
+//   caller will then be able to wait for the job instance
 func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T] {
 	// TODO: build job instance
 	ji := &JobInstance[T]{

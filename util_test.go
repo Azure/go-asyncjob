@@ -56,6 +56,12 @@ func (sql *SqlSummaryJobLib) GetTableClient(ctx context.Context, conn *SqlConnec
 			return nil, err
 		}
 	}
+
+	if v := ctx.Value(fmt.Sprintf("panic-injection.%s.%s", conn.ServerName, *tableName)); v != nil {
+		if shouldPanic := v.(bool); shouldPanic {
+			panic("as you wish")
+		}
+	}
 	return &SqlTableClient{ServerName: conn.ServerName, TableName: *tableName}, nil
 }
 
