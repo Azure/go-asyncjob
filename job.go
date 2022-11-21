@@ -58,7 +58,9 @@ func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T]
 	// create root step instance
 	ji.rootStep = newStepInstance(jd.rootStep)
 	ji.rootStep.task = asynctask.NewCompletedTask[T](input)
+	ji.rootStep.state = StepStateCompleted
 	ji.steps[ji.rootStep.GetName()] = ji.rootStep
+	ji.stepsDag.AddNode(ji.rootStep)
 
 	// construct job instance graph, with TopologySort ordering
 	orderedSteps := jd.stepsDag.TopologicalSort()
@@ -66,7 +68,7 @@ func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T]
 		if stepDef.GetName() == jd.Name {
 			continue
 		}
-		ji.steps[stepDef.GetName()] = stepDef.CreateStepInstance(ctx, ji)
+		ji.steps[stepDef.GetName()] = stepDef.createStepInstance(ctx, ji)
 
 	}
 

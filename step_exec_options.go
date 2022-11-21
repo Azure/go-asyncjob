@@ -23,7 +23,7 @@ type RetryPolicy interface {
 }
 
 // StepContextPolicy allows context enrichment before passing to step.
-type StepContextPolicy func(context.Context) context.Context
+type StepContextPolicy func(context.Context, StepInstanceMeta) context.Context
 
 type ExecutionOptionPreparer func(*StepExecutionOptions) *StepExecutionOptions
 
@@ -52,7 +52,7 @@ func WithTimeout(timeout time.Duration) ExecutionOptionPreparer {
 	}
 }
 
-func WithEnrichedContext(contextPolicy StepContextPolicy) ExecutionOptionPreparer {
+func EnrichedContext(contextPolicy StepContextPolicy) ExecutionOptionPreparer {
 	return func(options *StepExecutionOptions) *StepExecutionOptions {
 		options.ContextPolicy = contextPolicy
 		return options

@@ -14,9 +14,10 @@ func TestSimpleJob(t *testing.T) {
 	t.Parallel()
 	sb := &SqlSummaryJobLib{}
 
-	jb := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
-	renderGraph(jb)
-	jobInstance := jb.Start(context.Background(), &SqlSummaryJobParameters{
+	jd := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
+	renderGraph(t, jd)
+
+	jobInstance := jd.Start(context.Background(), &SqlSummaryJobParameters{
 		ServerName: "server1",
 		Table1:     "table1",
 		Query1:     "query1",
@@ -25,17 +26,19 @@ func TestSimpleJob(t *testing.T) {
 	})
 	jobErr := jobInstance.Wait(context.Background())
 	assert.NoError(t, jobErr)
+
+	renderGraph(t, jobInstance)
 }
 
 func TestJobError(t *testing.T) {
 	t.Parallel()
 	sb := &SqlSummaryJobLib{}
 
-	jb := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
-	renderGraph(jb)
+	jd := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
+	renderGraph(t, jd)
 
 	ctx := context.WithValue(context.Background(), "error-injection.server1.table1", fmt.Errorf("table1 not exists"))
-	jobInstance := jb.Start(ctx, &SqlSummaryJobParameters{
+	jobInstance := jd.Start(ctx, &SqlSummaryJobParameters{
 		ServerName: "server1",
 		Table1:     "table1",
 		Query1:     "query1",
@@ -50,17 +53,19 @@ func TestJobError(t *testing.T) {
 	errors.As(err, &jobErr)
 	assert.Equal(t, jobErr.Code, asyncjob.ErrStepFailed)
 	assert.Equal(t, "getTableClient1", jobErr.StepName)
+
+	renderGraph(t, jobInstance)
 }
 
 func TestJobPanic(t *testing.T) {
 	t.Parallel()
 	sb := &SqlSummaryJobLib{}
 
-	jb := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
-	renderGraph(jb)
+	jd := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
+	renderGraph(t, jd)
 
 	ctx := context.WithValue(context.Background(), "panic-injection.server1.table2", true)
-	jobInstance := jb.Start(ctx, &SqlSummaryJobParameters{
+	jobInstance := jd.Start(ctx, &SqlSummaryJobParameters{
 		ServerName: "server1",
 		Table1:     "table1",
 		Query1:     "query1",
@@ -71,19 +76,22 @@ func TestJobPanic(t *testing.T) {
 	err := jobInstance.Wait(context.Background())
 	assert.Error(t, err)
 
-	/*
-		jobErr := &asyncjob.JobError{}
-		assert.True(t, errors.As(err, &jobErr))
-		assert.Equal(t, jobErr.Code, asyncjob.ErrStepFailed)
-		assert.Equal(t, jobErr.StepName, "getTableClient1")*/
+	/*  panic is out of reach of jobError, but planning to catch panic in the future
+	jobErr := &asyncjob.JobError{}
+	assert.True(t, errors.As(err, &jobErr))
+	assert.Equal(t, jobErr.Code, asyncjob.ErrStepFailed)
+	assert.Equal(t, jobErr.StepName, "getTableClient1")*/
+
+	renderGraph(t, jobInstance)
 }
 
-func renderGraph[T any](jb *asyncjob.JobDefinition[T]) error {
+func renderGraph(t *testing.T, jb GraphRender) {
 	graphStr, err := jb.Visualize()
-	if err != nil {
-		return err
-	}
+	assert.NoError(t, err)
 
-	fmt.Println(graphStr)
-	return nil
+	t.Log(graphStr)
+}
+
+type GraphRender interface {
+	Visualize() (string, error)
 }
