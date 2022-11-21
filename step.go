@@ -90,6 +90,7 @@ func connectStepDefinition(stepFrom, stepTo StepDefinitionMeta) *graph.DotEdgeSp
 type StepInstanceMeta interface {
 	GetName() string
 	Waitable() asynctask.Waitable
+	DotSpec() *graph.DotNodeSpec
 }
 
 type StepInstance[T any] struct {
@@ -113,4 +114,26 @@ func (si *StepInstance[T]) Waitable() asynctask.Waitable {
 
 func (si *StepInstance[T]) GetName() string {
 	return si.Definition.GetName()
+}
+
+func (sd *StepInstance[T]) DotSpec() *graph.DotNodeSpec {
+	return &graph.DotNodeSpec{
+		Name:        sd.GetName(),
+		DisplayName: sd.GetName(),
+		Shape:       "box",
+		Style:       "filled",
+		FillColor:   "gray",
+		Tooltip:     "",
+	}
+}
+
+func connectStepInstance(stepFrom, stepTo StepInstanceMeta) *graph.DotEdgeSpec {
+	edgeSpec := &graph.DotEdgeSpec{
+		FromNodeName: stepFrom.GetName(),
+		ToNodeName:   stepTo.GetName(),
+		Color:        "black",
+		Style:        "bold",
+	}
+
+	return edgeSpec
 }

@@ -49,7 +49,7 @@ func TestJobError(t *testing.T) {
 	jobErr := &asyncjob.JobError{}
 	errors.As(err, &jobErr)
 	assert.Equal(t, jobErr.Code, asyncjob.ErrStepFailed)
-	assert.Equal(t, jobErr.StepName, "getTableClient1")
+	assert.Equal(t, "getTableClient1", jobErr.StepName)
 }
 
 func TestJobPanic(t *testing.T) {

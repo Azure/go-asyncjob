@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// internal retryer to execute RetryPolicy interface
 type retryer[T any] struct {
 	retryPolicy RetryPolicy
 	retryReport *RetryReport

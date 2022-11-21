@@ -1,6 +1,7 @@
 package asyncjob
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -8,7 +9,7 @@ type JobErrorCode string
 
 const (
 	ErrPrecedentStepFailure JobErrorCode = "precedent step failed"
-	ErrStepFailed           JobErrorCode = "current step failed"
+	ErrStepFailed           JobErrorCode = "step failed"
 )
 
 func (code JobErrorCode) Error() string {
@@ -22,12 +23,8 @@ type JobError struct {
 	Message   string
 }
 
-func newJobError(code JobErrorCode, message string) *JobError {
-	return &JobError{Code: code, Message: message}
-}
-
-func newStepError(stepName string, stepErr error) *JobError {
-	return &JobError{Code: ErrStepFailed, StepName: stepName, StepError: stepErr}
+func newStepError(code JobErrorCode, stepName string, stepErr error) *JobError {
+	return &JobError{Code: code, StepName: stepName, StepError: stepErr}
 }
 
 func (je *JobError) Error() string {
@@ -38,9 +35,25 @@ func (je *JobError) Error() string {
 }
 
 func (je *JobError) Unwrap() error {
+	return je.StepError
+}
+
+// RootCause track precendent chain and return the first step raised this error.
+func (je *JobError) RootCause() error {
+	// this step failed, return the error
 	if je.Code == ErrStepFailed {
-		return je.StepError
+		return je
 	}
 
-	return je.Code
+	// precendent step failure, track to the root
+	if je.Code == ErrPrecedentStepFailure {
+		precedentStepErr := &JobError{}
+		if !errors.As(je.StepError, &precedentStepErr) {
+			return je.StepError
+		}
+		return precedentStepErr.RootCause()
+	}
+
+	// no idea
+	return je
 }
