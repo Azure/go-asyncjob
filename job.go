@@ -8,12 +8,6 @@ import (
 	"github.com/Azure/go-asynctask"
 )
 
-type JobState string
-
-const JobStatePending JobState = "pending"
-const JobStateRunning JobState = "running"
-const JobStateCompleted JobState = "completed"
-
 type JobDefinitionMeta interface {
 	GetStep(stepName string) (StepDefinitionMeta, bool) // switch bool to error
 	AddStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta)
@@ -48,7 +42,6 @@ func (jd *JobDefinition[T]) Start(ctx context.Context, input *T) *JobInstance[T]
 	ji := &JobInstance[T]{
 		definition: jd,
 		input:      input,
-		state:      JobStateRunning,
 		steps:      map[string]StepInstanceMeta{},
 	}
 	ji.rootStep = newStepInstance(jd.rootStep)
@@ -98,7 +91,6 @@ type JobInstanceMeta interface {
 type JobInstance[T any] struct {
 	input      *T
 	definition *JobDefinition[T]
-	state      JobState
 	jobStart   *sync.WaitGroup
 	rootStep   *StepInstance[T]
 	steps      map[string]StepInstanceMeta
