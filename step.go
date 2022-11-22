@@ -102,10 +102,11 @@ func connectStepDefinition(stepFrom, stepTo StepDefinitionMeta) *graph.DotEdgeSp
 // StepInstanceMeta is the interface for a step instance
 type StepInstanceMeta interface {
 	GetName() string
-	Waitable() asynctask.Waitable
-	DotSpec() *graph.DotNodeSpec
 	ExecutionData() *StepExecutionData
 	GetState() StepState
+	Waitable() asynctask.Waitable
+
+	DotSpec() *graph.DotNodeSpec
 }
 
 // StepInstance is the instance of a step, within a job instance.
