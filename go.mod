@@ -1,4 +1,4 @@
-module github.com/haitch/go-asyncjob
+module github.com/Azure/go-asyncjob
 
 go 1.18
 
