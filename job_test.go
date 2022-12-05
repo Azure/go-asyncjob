@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/Azure/go-asyncjob"
-	"github.com/goccy/go-graphviz"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -91,12 +90,6 @@ func renderGraph(jb *asyncjob.Job) error {
 	}
 
 	fmt.Println(graphStr)
-
-	_, err = graphviz.ParseBytes([]byte(graphStr))
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 

@@ -1,11 +1,8 @@
-module github.com/haitch/go-asyncjob/graph
+module github.com/Azure/go-asyncjob/graph
 
-go 1.18
+go 1.19
 
-require (
-	github.com/Azure/go-asyncjob v0.2.4
-	github.com/stretchr/testify v1.8.1
-)
+require github.com/stretchr/testify v1.8.1
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
