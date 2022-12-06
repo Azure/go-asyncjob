@@ -9,10 +9,15 @@ import (
 
 var digraphTemplate = template.Must(template.New("digraph").Parse(digraphTemplateText))
 
+type templateRef struct {
+	Nodes []*DotNodeSpec
+	Edges []*DotEdgeSpec
+}
+
 const digraphTemplateText = `digraph {
 	newrank = "true"
-{{ range $node := $.Nodes}}		"{{$node.ID}}" [label="{{$node.Name}}" shape={{$node.Shape}} style={{$node.Style}} tooltip="{{$node.Tooltip}}" fillcolor={{$node.FillColor}}] 
+{{ range $node := $.Nodes}}		"{{$node.Name}}" [label="{{$node.DisplayName}}" shape={{$node.Shape}} style={{$node.Style}} tooltip="{{$node.Tooltip}}" fillcolor={{$node.FillColor}}] 
 {{ end }}        
-{{ range $edge := $.Edges}}		"{{$edge.FromNodeID}}" -> "{{$edge.ToNodeID}}" [style={{$edge.Style}} tooltip="{{$edge.Tooltip}}" color={{$edge.Color}}] 
+{{ range $edge := $.Edges}}		"{{$edge.FromNodeName}}" -> "{{$edge.ToNodeName}}" [style={{$edge.Style}} tooltip="{{$edge.Tooltip}}" color={{$edge.Color}}] 
 {{ end }}
 }`
