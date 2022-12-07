@@ -3,7 +3,7 @@ module github.com/Azure/go-asyncjob
 go 1.18
 
 require (
-	github.com/Azure/go-asyncjob/graph v0.1.0
+	github.com/Azure/go-asyncjob/graph v0.2.0
 	github.com/Azure/go-asynctask v1.3.1
 	github.com/stretchr/testify v1.8.1
 )
