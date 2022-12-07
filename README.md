@@ -13,6 +13,16 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 - step is wrapped in [AsyncTask](https://github.com/Azure/go-asynctask) with strongType info preserved
 - you can feed parameters as a step as well.
 
+# asyncjob v2
+
+It is recommanded to use asyncJob v2, it separate job definition and job execution.
+
+with v1 you create the job and run the job, you would have to rebuild the job again to run it again.
+
+with v2, you can create the jobDefiniton, and start it multiple times, that will create multiple job instance.
+
+another key different is on v2, the function provided shouldn't have a receiever object, as that would introduce shared state between multiple instances.
+
 # Usage
 
 ### Build and run a asyncjob
@@ -49,6 +59,8 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 	dotGraph := job.Visualize()
 	fmt.Println(dotGraph)
 ```
+
+![visualize job graph](media/asyncjob.svg)
 
 ```
 digraph {
@@ -91,4 +103,4 @@ digraph {
 
 }
 ```
-![visualize job graph](media/asyncjob.svg)
+
