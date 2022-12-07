@@ -23,6 +23,8 @@ with v2, you can create the jobDefiniton, and start it multiple times, that will
 
 another key different is on v2, the function provided shouldn't have a receiever object, as that would introduce shared state between multiple instances.
 
+no plan to keep v1, once v2 is mature enough, v1 will be removed.
+
 # Usage
 
 ### Build and run a asyncjob
