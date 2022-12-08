@@ -17,11 +17,11 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 
 It is recommanded to use asyncJob v2, it separate job definition and job execution.
 
-with v1 you create the job and run the job, you would have to rebuild the job again to run it again.
+with v1 you create the job and run the job, job can only run once.
 
 with v2, you can create the jobDefiniton, and start it multiple times, that will create multiple job instance.
 
-another key different is on v2, the function provided shouldn't have a receiever object, as that would introduce shared state between multiple instances.
+another key different is on v2, the function provided shouldn't have a receiever object, as that would introduce shared state between multiple instances. (not a problem for v1, since job is one time use)
 
 no plan to keep v1, once v2 is mature enough, v1 will be removed.
 
