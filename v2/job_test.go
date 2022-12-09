@@ -18,7 +18,7 @@ func TestSimpleJob(t *testing.T) {
 	jd := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
 	renderGraph(t, jd)
 
-	jobInstance := jd.Start(context.WithValue(context.Background(), sb, t), &SqlSummaryJobParameters{
+	jobInstance := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobParameters{
 		ServerName: "server1",
 		Table1:     "table1",
 		Query1:     "query1",
@@ -31,6 +31,42 @@ func TestSimpleJob(t *testing.T) {
 	renderGraph(t, jobInstance)
 }
 
+func TestMethodFromJobInput(t *testing.T) {
+	t.Parallel()
+
+	jd, err := BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
+	assert.NoError(t, err)
+	renderGraph(t, jd)
+
+	jobInstance := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLibAdvanced{
+		Params: &SqlSummaryJobParameters{
+			ServerName: "server1",
+			Table1:     "table1",
+			Query1:     "query1",
+			Table2:     "table2",
+			Query2:     "query2",
+		},
+		SqlSummaryJobLib: SqlSummaryJobLib{},
+	})
+	jobErr := jobInstance.Wait(context.Background())
+	assert.NoError(t, jobErr)
+	renderGraph(t, jobInstance)
+
+	jobInstance2 := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLibAdvanced{
+		Params: &SqlSummaryJobParameters{
+			ServerName: "server2",
+			Table1:     "table3",
+			Query1:     "query3",
+			Table2:     "table4",
+			Query2:     "query4",
+		},
+		SqlSummaryJobLib: SqlSummaryJobLib{},
+	})
+	jobErr = jobInstance2.Wait(context.Background())
+	assert.NoError(t, jobErr)
+	renderGraph(t, jobInstance2)
+}
+
 func TestJobError(t *testing.T) {
 	t.Parallel()
 	sb := &SqlSummaryJobLib{}
@@ -38,7 +74,7 @@ func TestJobError(t *testing.T) {
 	jd := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
 	renderGraph(t, jd)
 
-	ctx := context.WithValue(context.WithValue(context.Background(), sb, t), "error-injection.server1.table1", fmt.Errorf("table1 not exists"))
+	ctx := context.WithValue(context.WithValue(context.Background(), testLoggingContextKey, t), "error-injection.server1.table1", fmt.Errorf("table1 not exists"))
 	jobInstance := jd.Start(ctx, &SqlSummaryJobParameters{
 		ServerName: "server1",
 		Table1:     "table1",
@@ -65,7 +101,7 @@ func TestJobPanic(t *testing.T) {
 	jd := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
 	renderGraph(t, jd)
 
-	ctx := context.WithValue(context.WithValue(context.Background(), sb, t), "panic-injection.server1.table2", true)
+	ctx := context.WithValue(context.WithValue(context.Background(), testLoggingContextKey, t), "panic-injection.server1.table2", true)
 	jobInstance := jd.Start(ctx, &SqlSummaryJobParameters{
 		ServerName: "server1",
 		Table1:     "table1",
@@ -93,7 +129,7 @@ func TestJobStepRetry(t *testing.T) {
 	jd := sb.BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{"QueryTable1": newLinearRetryPolicy(time.Millisecond*3, 3)})
 	renderGraph(t, jd)
 
-	ctx := context.WithValue(context.WithValue(context.Background(), sb, t), "error-injection.server1.table1.query1", fmt.Errorf("query exeeded memory limit"))
+	ctx := context.WithValue(context.WithValue(context.Background(), testLoggingContextKey, t), "error-injection.server1.table1.query1", fmt.Errorf("query exeeded memory limit"))
 	jobInstance := jd.Start(ctx, &SqlSummaryJobParameters{
 		ServerName: "server1",
 		Table1:     "table1",

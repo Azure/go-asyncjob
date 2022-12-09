@@ -8,6 +8,115 @@ import (
 	"github.com/Azure/go-asynctask"
 )
 
+// StepFromJobInputMethod construct the step from the method on job input
+//   compare to AddStep,
+//     the benifit would be less chance of shared state between job instances (i.e. method have a receiver, that receiver is shared between job instances)
+//     you can construct the step purely on jobInput (unique per job), thus, the method should be defined on jobInput.
+//   if your stepFunc doesn't have receiver, then AddStep is simplier.
+func StepFromJobInputMethod[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFuncCreator func(input *JT) asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	stepD := newStepDefinition[ST](stepName, stepTypeTask, optionDecorators...)
+	precedingDefSteps, err := getDependsOnSteps(stepD, j)
+	if err != nil {
+		return nil, err
+	}
+
+	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
+	if len(precedingDefSteps) == 0 {
+		precedingDefSteps = append(precedingDefSteps, j.getRootStep())
+		stepD.executionOptions.DependOn = append(stepD.executionOptions.DependOn, j.getRootStep().GetName())
+	}
+
+	stepD.instanceCreator = func(ctx context.Context, ji JobInstanceMeta) StepInstanceMeta {
+		// TODO: error is ignored here
+		precedingInstances, precedingTasks, _ := getDependsOnStepInstances(stepD, ji)
+
+		jiStrongTyped := ji.(*JobInstance[JT])
+		stepInstance := newStepInstance[ST](stepD, ji)
+		stepInstance.task = asynctask.Start(ctx, instrumentedAddStep(stepInstance, precedingTasks, stepFuncCreator(jiStrongTyped.input)))
+		ji.addStepInstance(stepInstance, precedingInstances...)
+		return stepInstance
+	}
+
+	j.addStep(stepD, precedingDefSteps...)
+	return stepD, nil
+}
+
+// StepAfterFromJobInputMethod construct the step from the method on job input, with a parent step
+//   compare to StepAfter,
+//     the benifit would be less chance of shared state between job instances (i.e. method have a receiver, that receiver is shared between job instances)
+//     you can construct the step purely on jobInput (unique per job), thus, the method should be defined on jobInput.
+//   if your stepFunc doesn't have receiver, then StepAfter is simplier.
+func StepAfterFromJobInputMethod[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepAfterFuncCreator func(input *JT) asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	// check parentStepT is in this job
+	if get, ok := j.GetStep(parentStep.GetName()); !ok || get != parentStep {
+		return nil, fmt.Errorf("step [%s] not found in job", parentStep.GetName())
+	}
+
+	stepD := newStepDefinition[ST](stepName, stepTypeTask, append(optionDecorators, ExecuteAfter(parentStep))...)
+	precedingDefSteps, err := getDependsOnSteps(stepD, j)
+	if err != nil {
+		return nil, err
+	}
+
+	stepD.instanceCreator = func(ctx context.Context, ji JobInstanceMeta) StepInstanceMeta {
+		// TODO: error is ignored here
+		precedingInstances, precedingTasks, _ := getDependsOnStepInstances(stepD, ji)
+
+		jiStrongTyped := ji.(*JobInstance[JT])
+		parentStepInstance := getStrongTypedStepInstance(parentStep, ji)
+		stepInstance := newStepInstance[ST](stepD, ji)
+		stepInstance.task = asynctask.ContinueWith(ctx, parentStepInstance.task, instrumentedStepAfter(stepInstance, precedingTasks, stepAfterFuncCreator(jiStrongTyped.input)))
+		ji.addStepInstance(stepInstance, precedingInstances...)
+		return stepInstance
+	}
+
+	j.addStep(stepD, precedingDefSteps...)
+	return stepD, nil
+}
+
+// StepAfterBothFromJobInputMethod construct the step from the method on job input, with two parent step
+//   compare to StepAfterBoth,
+//     the benifit would be less chance of shared state between job instances (i.e. method have a receiver, that receiver is shared between job instances)
+//     you can construct the step purely on jobInput (unique per job), thus, the method should be defined on jobInput.
+//   if your stepFunc doesn't have receiver, then StepAfterBoth is simplier.
+func StepAfterBothFromJobInputMethod[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepAfterBothFuncCreator func(input *JT) asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	// check parentStepT is in this job
+	if get, ok := j.GetStep(parentStep1.GetName()); !ok || get != parentStep1 {
+		return nil, fmt.Errorf("step [%s] not found in job", parentStep1.GetName())
+	}
+	if get, ok := j.GetStep(parentStep2.GetName()); !ok || get != parentStep2 {
+		return nil, fmt.Errorf("step [%s] not found in job", parentStep2.GetName())
+	}
+
+	stepD := newStepDefinition[ST](stepName, stepTypeTask, append(optionDecorators, ExecuteAfter(parentStep1), ExecuteAfter(parentStep2))...)
+	precedingDefSteps, err := getDependsOnSteps(stepD, j)
+	if err != nil {
+		return nil, err
+	}
+
+	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
+	if len(precedingDefSteps) == 0 {
+		precedingDefSteps = append(precedingDefSteps, j.getRootStep())
+		stepD.executionOptions.DependOn = append(stepD.executionOptions.DependOn, j.getRootStep().GetName())
+	}
+
+	stepD.instanceCreator = func(ctx context.Context, ji JobInstanceMeta) StepInstanceMeta {
+		// TODO: error is ignored here
+		precedingInstances, precedingTasks, _ := getDependsOnStepInstances(stepD, ji)
+
+		jiStrongTyped := ji.(*JobInstance[JT])
+		parentStepInstance1 := getStrongTypedStepInstance(parentStep1, ji)
+		parentStepInstance2 := getStrongTypedStepInstance(parentStep2, ji)
+		stepInstance := newStepInstance[ST](stepD, ji)
+		stepInstance.task = asynctask.AfterBoth(ctx, parentStepInstance1.task, parentStepInstance2.task, instrumentedStepAfterBoth(stepInstance, precedingTasks, stepAfterBothFuncCreator(jiStrongTyped.input)))
+		ji.addStepInstance(stepInstance, precedingInstances...)
+		return stepInstance
+	}
+
+	j.addStep(stepD, precedingDefSteps...)
+	return stepD, nil
+}
+
 // StepFromJobInput: steps that consumes job input
 func StepFromJobInput[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFunc asynctask.ContinueFunc[JT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
 	return StepAfter[JT, ST](bCtx, j, stepName, j.rootStep, stepFunc, optionDecorators...)
@@ -55,11 +164,6 @@ func StepAfter[T, S any](bCtx context.Context, j JobDefinitionMeta, stepName str
 		return nil, err
 	}
 
-	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
-	if len(precedingDefSteps) == 0 {
-		precedingDefSteps = append(precedingDefSteps, j.getRootStep())
-	}
-
 	stepD.instanceCreator = func(ctx context.Context, ji JobInstanceMeta) StepInstanceMeta {
 		// TODO: error is ignored here
 		precedingInstances, precedingTasks, _ := getDependsOnStepInstances(stepD, ji)
@@ -88,11 +192,6 @@ func StepAfterBoth[T, S, R any](bCtx context.Context, j JobDefinitionMeta, stepN
 	precedingDefSteps, err := getDependsOnSteps(stepD, j)
 	if err != nil {
 		return nil, err
-	}
-
-	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
-	if len(precedingDefSteps) == 0 {
-		precedingDefSteps = append(precedingDefSteps, j.getRootStep())
 	}
 
 	stepD.instanceCreator = func(ctx context.Context, ji JobInstanceMeta) StepInstanceMeta {

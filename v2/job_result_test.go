@@ -16,7 +16,7 @@ func TestSimpleJobWithResult(t *testing.T) {
 	assert.NoError(t, err)
 	renderGraph(t, jd)
 
-	jobInstance := jd.Start(context.WithValue(context.Background(), sb, t), &SqlSummaryJobParameters{
+	jobInstance := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobParameters{
 		ServerName: "server1",
 		Table1:     "table1",
 		Query1:     "query1",
