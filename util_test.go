@@ -3,20 +3,182 @@ package asyncjob_test
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
-	"github.com/Azure/go-asyncjob"
+	"github.com/Azure/go-asyncjob/v2"
 	"github.com/Azure/go-asynctask"
 )
 
+const testLoggingContextKey = "test-logging"
+
+type SqlSummaryJobLibAdvanced struct {
+	SqlSummaryJobLib
+	Params *SqlSummaryJobParameters
+}
+
+func serverNameStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.ServerName, nil
+	}
+}
+
+func table1NameStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.Table1, nil
+	}
+}
+
+func table2NameStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.Table2, nil
+	}
+}
+
+func query1ParamStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.Query1, nil
+	}
+}
+
+func query2ParamStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.Query2, nil
+	}
+}
+
+func connectionStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.ContinueFunc[string, SqlConnection] {
+	return func(ctx context.Context, serverName *string) (*SqlConnection, error) {
+		return sql.GetConnection(ctx, serverName)
+	}
+}
+
+func checkAuthStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[interface{}] {
+	return asynctask.ActionToFunc(func(ctx context.Context) error {
+		return sql.CheckAuth(ctx)
+	})
+}
+
+func tableClientStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlConnection, string, SqlTableClient] {
+	return func(ctx context.Context, conn *SqlConnection, tableName *string) (*SqlTableClient, error) {
+		return sql.GetTableClient(ctx, conn, tableName)
+	}
+}
+
+func queryTableStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlTableClient, string, SqlQueryResult] {
+	return func(ctx context.Context, tableClient *SqlTableClient, query *string) (*SqlQueryResult, error) {
+		return sql.ExecuteQuery(ctx, tableClient, query)
+	}
+}
+
+func summarizeQueryResultStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlQueryResult, SqlQueryResult, SummarizedResult] {
+	return func(ctx context.Context, query1Result *SqlQueryResult, query2Result *SqlQueryResult) (*SummarizedResult, error) {
+		return sql.SummarizeQueryResult(ctx, query1Result, query2Result)
+	}
+}
+
+func emailNotificationStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[interface{}] {
+	return asynctask.ActionToFunc(func(ctx context.Context) error {
+		return sql.EmailNotification(ctx)
+	})
+}
+
+func BuildJob(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinition[SqlSummaryJobLibAdvanced], error) {
+	job := asyncjob.NewJobDefinition[SqlSummaryJobLibAdvanced]("sqlSummaryJob")
+	serverNameParamTask, err := asyncjob.AddStep(bCtx, job, "ServerNameParam", serverNameStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step ServerNameParam: %w", err)
+	}
+
+	connTsk, err := asyncjob.StepAfter(bCtx, job, "GetConnection", serverNameParamTask, connectionStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step GetConnection: %w", err)
+	}
+
+	checkAuthTask, err := asyncjob.AddStep(bCtx, job, "CheckAuth", checkAuthStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step CheckAuth: %w", err)
+	}
+
+	table1ParamTsk, err := asyncjob.AddStep(bCtx, job, "Table1Param", table1NameStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Table1Param: %w", err)
+	}
+
+	table1ClientTsk, err := asyncjob.StepAfterBoth(bCtx, job, "GetTableClient1", connTsk, table1ParamTsk, tableClientStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step GetTableClient1: %w", err)
+	}
+
+	query1ParamTsk, err := asyncjob.AddStep(bCtx, job, "Query1Param", query1ParamStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Query1Param: %w", err)
+	}
+
+	qery1ResultTsk, err := asyncjob.StepAfterBoth(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, queryTableStepFunc, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step QueryTable1: %w", err)
+	}
+
+	table2ParamTsk, err := asyncjob.AddStep(bCtx, job, "Table2NameParam", table2NameStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Table2NameParam: %w", err)
+	}
+
+	table2ClientTsk, err := asyncjob.StepAfterBoth(bCtx, job, "GetTableClient2", connTsk, table2ParamTsk, tableClientStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step GetTableClient2: %w", err)
+	}
+
+	query2ParamTsk, err := asyncjob.AddStep(bCtx, job, "Query2Param", query2ParamStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Query2Param: %w", err)
+	}
+
+	qery2ResultTsk, err := asyncjob.StepAfterBoth(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, queryTableStepFunc, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step QueryTable2: %w", err)
+	}
+
+	summaryTsk, err := asyncjob.StepAfterBoth(bCtx, job, "Summarize", qery1ResultTsk, qery2ResultTsk, summarizeQueryResultStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Summarize: %w", err)
+	}
+
+	_, err = asyncjob.AddStep(bCtx, job, "EmailNotification", emailNotificationStepFunc, asyncjob.ExecuteAfter(summaryTsk), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step EmailNotification: %w", err)
+	}
+	return job, nil
+}
+
+func BuildJobWithResult(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinitionWithResult[SqlSummaryJobLibAdvanced, SummarizedResult], error) {
+	job, err := BuildJob(bCtx, retryPolicies)
+	if err != nil {
+		return nil, err
+	}
+
+	summaryStepMeta, ok := job.GetStep("Summarize")
+	if !ok {
+		return nil, fmt.Errorf("step Summarize not found")
+	}
+	summaryStep, ok := summaryStepMeta.(*asyncjob.StepDefinition[SummarizedResult])
+	if !ok {
+		return nil, fmt.Errorf("step Summarize have different generic type parameter: %T", summaryStepMeta)
+	}
+	return asyncjob.JobWithResult(job, summaryStep)
+}
+
 type SqlSummaryJobLib struct {
+}
+
+type SqlSummaryJobParameters struct {
 	ServerName     string
 	Table1         string
 	Query1         string
 	Table2         string
 	Query2         string
 	ErrorInjection map[string]func() error
-	RetryPolicies  map[string]asyncjob.RetryPolicy
 }
 
 type SqlConnection struct {
@@ -33,40 +195,40 @@ type SqlQueryResult struct {
 }
 
 type SummarizedResult struct {
-	Data1 map[string]interface{}
-	Data2 map[string]interface{}
+	QueryResult1 map[string]interface{}
+	QueryResult2 map[string]interface{}
 }
 
 func (sql *SqlSummaryJobLib) GetConnection(ctx context.Context, serverName *string) (*SqlConnection, error) {
-	fmt.Println("GetConnection")
-	if sql.ErrorInjection != nil {
-		if errFunc, ok := sql.ErrorInjection[fmt.Sprintf("GetConnection.%s", *serverName)]; ok {
-			if err := errFunc(); err != nil {
-				return nil, err
-			}
+	sql.Logging(ctx, "GetConnection")
+	if v := ctx.Value(fmt.Sprintf("error-injection.%s", *serverName)); v != nil {
+		if err, ok := v.(error); ok {
+			return nil, err
 		}
 	}
 	return &SqlConnection{ServerName: *serverName}, nil
 }
 
 func (sql *SqlSummaryJobLib) GetTableClient(ctx context.Context, conn *SqlConnection, tableName *string) (*SqlTableClient, error) {
-	fmt.Println("GetTableClient with tableName:", *tableName)
-	if sql.ErrorInjection != nil {
-		if errFunc, ok := sql.ErrorInjection[fmt.Sprintf("GetTableClient.%s", *tableName)]; ok {
-			if err := errFunc(); err != nil {
-				return nil, err
-			}
+	sql.Logging(ctx, fmt.Sprintf("GetTableClient with tableName: %s", *tableName))
+	if v := ctx.Value(fmt.Sprintf("error-injection.%s.%s", conn.ServerName, *tableName)); v != nil {
+		if err, ok := v.(error); ok {
+			return nil, err
+		}
+	}
+
+	if v := ctx.Value(fmt.Sprintf("panic-injection.%s.%s", conn.ServerName, *tableName)); v != nil {
+		if shouldPanic := v.(bool); shouldPanic {
+			panic("as you wish")
 		}
 	}
 	return &SqlTableClient{ServerName: conn.ServerName, TableName: *tableName}, nil
 }
 
 func (sql *SqlSummaryJobLib) CheckAuth(ctx context.Context) error {
-	if sql.ErrorInjection != nil {
-		if errFunc, ok := sql.ErrorInjection["CheckAuth"]; ok {
-			if err := errFunc(); err != nil {
-				return err
-			}
+	if v := ctx.Value("error-injection.checkAuth"); v != nil {
+		if err, ok := v.(error); ok {
+			return err
 		}
 	}
 
@@ -74,12 +236,10 @@ func (sql *SqlSummaryJobLib) CheckAuth(ctx context.Context) error {
 }
 
 func (sql *SqlSummaryJobLib) ExecuteQuery(ctx context.Context, tableClient *SqlTableClient, queryString *string) (*SqlQueryResult, error) {
-	fmt.Println("ExecuteQuery: ", *queryString)
-	if sql.ErrorInjection != nil {
-		if errFunc, ok := sql.ErrorInjection[fmt.Sprintf("ExecuteQuery.%s", *queryString)]; ok {
-			if err := errFunc(); err != nil {
-				return nil, err
-			}
+	sql.Logging(ctx, fmt.Sprintf("ExecuteQuery: %s", *queryString))
+	if v := ctx.Value(fmt.Sprintf("error-injection.%s.%s.%s", tableClient.ServerName, tableClient.TableName, *queryString)); v != nil {
+		if err, ok := v.(error); ok {
+			return nil, err
 		}
 	}
 
@@ -87,43 +247,38 @@ func (sql *SqlSummaryJobLib) ExecuteQuery(ctx context.Context, tableClient *SqlT
 }
 
 func (sql *SqlSummaryJobLib) SummarizeQueryResult(ctx context.Context, result1 *SqlQueryResult, result2 *SqlQueryResult) (*SummarizedResult, error) {
-	fmt.Println("SummarizeQueryResult")
-	if sql.ErrorInjection != nil {
-		if errFunc, ok := sql.ErrorInjection["SummarizeQueryResult"]; ok {
-			if err := errFunc(); err != nil {
-				return nil, err
-			}
+	sql.Logging(ctx, "SummarizeQueryResult")
+	if v := ctx.Value("error-injection.summarize"); v != nil {
+		if err, ok := v.(error); ok {
+			return nil, err
 		}
 	}
-	return &SummarizedResult{Data1: result1.Data, Data2: result2.Data}, nil
+	return &SummarizedResult{QueryResult1: result1.Data, QueryResult2: result2.Data}, nil
 }
 
 func (sql *SqlSummaryJobLib) EmailNotification(ctx context.Context) error {
-	fmt.Println("EmailNotification")
+	sql.Logging(ctx, "EmailNotification")
 	return nil
 }
 
-func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context) *asyncjob.Job {
-	job := asyncjob.NewJob("sqlSummaryJob")
+func (sql *SqlSummaryJobLib) Logging(ctx context.Context, msg string) {
+	if tI := ctx.Value(testLoggingContextKey); tI != nil {
+		t := tI.(*testing.T)
 
-	serverNameParamTask := asyncjob.InputParam(bCtx, job, "serverName", &sql.ServerName)
-	connTsk, _ := asyncjob.StepAfter(bCtx, job, "GetConnection", serverNameParamTask, sql.GetConnection, asyncjob.WithRetry(sql.RetryPolicies["GetConnection"]))
+		jobName := ctx.Value("asyncjob.jobName")
+		stepName := ctx.Value("asyncjob.stepName")
 
-	checkAuthTask, _ := asyncjob.AddStep(bCtx, job, "CheckAuth", asynctask.ActionToFunc(sql.CheckAuth), asyncjob.WithRetry(sql.RetryPolicies["CheckAuth"]))
+		t.Logf("[Job: %s, Step: %s] %s", jobName, stepName, msg)
 
-	table1ParamTsk := asyncjob.InputParam(bCtx, job, "table1", &sql.Table1)
-	table1ClientTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "getTableClient1", connTsk, table1ParamTsk, sql.GetTableClient)
-	query1ParamTsk := asyncjob.InputParam(bCtx, job, "query1", &sql.Query1)
-	qery1ResultTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.RetryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask))
+	} else {
+		fmt.Println(msg)
+	}
+}
 
-	table2ParamTsk := asyncjob.InputParam(bCtx, job, "table2", &sql.Table2)
-	table2ClientTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "getTableClient2", connTsk, table2ParamTsk, sql.GetTableClient)
-	query2ParamTsk := asyncjob.InputParam(bCtx, job, "query2", &sql.Query2)
-	qery2ResultTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, sql.ExecuteQuery, asyncjob.WithRetry(sql.RetryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask))
-
-	summaryTsk, _ := asyncjob.StepAfterBoth(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, sql.SummarizeQueryResult)
-	asyncjob.AddStep(bCtx, job, "emailNotification", asynctask.ActionToFunc(sql.EmailNotification), asyncjob.ExecuteAfter(summaryTsk))
-	return job
+func EnrichContext(ctx context.Context, instanceMeta asyncjob.StepInstanceMeta) context.Context {
+	ctx = context.WithValue(ctx, "asyncjob.jobName", instanceMeta.GetJobInstance().GetJobDefinition().GetName())
+	ctx = context.WithValue(ctx, "asyncjob.stepName", instanceMeta.GetStepDefinition().GetName())
+	return ctx
 }
 
 type linearRetryPolicy struct {
@@ -139,14 +294,11 @@ func newLinearRetryPolicy(sleepInterval time.Duration, maxRetryCount int) asyncj
 	}
 }
 
-func (lrp *linearRetryPolicy) SleepInterval() time.Duration {
-	lrp.tried++
-	return lrp.sleepInterval
-}
-
-func (lrp *linearRetryPolicy) ShouldRetry(error) bool {
+func (lrp *linearRetryPolicy) ShouldRetry(error) (bool, time.Duration) {
 	if lrp.tried < lrp.maxRetryCount {
-		return true
+		lrp.tried++
+		return true, lrp.sleepInterval
 	}
-	return false
+
+	return false, time.Duration(0)
 }

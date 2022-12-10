@@ -3,27 +3,23 @@
 AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a sequential chain.
 
 # Concepts
-**Job** is a graph describe code blocks and their connections.
-- all tasks added to a job will be blocked from running, until Start() is triggered
-- job can be visualized for human to understand
+**JobDefinition** is a graph describe code blocks and their connections.
+- jobDefinition can be visualized using graphviz, easier for human to understand.
 
-**Step** is a individual code block which can be executed and have inputs, output.
-- a step would be started once all it's dependency is finished.
+**JobInstance** is an instance of JobDefinition, after calling .Start() method from JobDefinition
+- all Steps on the definition will be copied to JobInstance.
+- each step will be executed once it's precedent step is done.
+- jobInstance can be visualized as well, instance visualize contains detailed info(startTime, duration) on each step.
+
+**StepDefinition** is a individual code block which can be executed and have inputs, output.
+- StepDefinition describe it's preceding steps.
+- StepDefinition contains generic Params
 - output of a step can be feed into next step as input, type is checked by go generics.
-- step is wrapped in [AsyncTask](https://github.com/Azure/go-asynctask) with strongType info preserved
-- you can feed parameters as a step as well.
 
-# asyncjob v2
-
-It is recommanded to use asyncJob v2, it separate job definition and job execution.
-
-with v1 you create the job and run the job, job can only run once.
-
-with v2, you can create the jobDefiniton, and start it multiple times, that will create multiple job instance.
-
-another key different is on v2, the function provided shouldn't have a receiever object, as that would introduce shared state between multiple instances. (not a problem for v1, since job is one time use)
-
-no plan to keep v1, once v2 is mature enough, v1 will be removed.
+**StepInstance** is instance of StepDefinition
+- step is wrapped in [AsyncTask](https://github.com/Azure/go-asynctask)
+- a step would be started once all it's dependency is finished.
+- executionPolicy can be applied {Retry, ContextEnrichment}
 
 # Usage
 

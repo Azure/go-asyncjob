@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// internal retryer to execute RetryPolicy interface
 type retryer[T any] struct {
 	retryPolicy RetryPolicy
 	retryReport *RetryReport
@@ -29,10 +30,14 @@ func (r *retryer[T]) funcWithPanicHandled() (result *T, err error) {
 
 func (r retryer[T]) Run() (*T, error) {
 	t, err := r.funcWithPanicHandled()
-	for err != nil && r.retryPolicy.ShouldRetry(err) {
-		r.retryReport.Count++
-		time.Sleep(r.retryPolicy.SleepInterval())
-		t, err = r.funcWithPanicHandled()
+	for err != nil {
+		if shouldRetry, duration := r.retryPolicy.ShouldRetry(err); shouldRetry {
+			r.retryReport.Count++
+			time.Sleep(duration)
+			t, err = r.funcWithPanicHandled()
+		} else {
+			break
+		}
 	}
 
 	return t, err
