@@ -17,6 +17,141 @@ type SqlSummaryJobLibAdvanced struct {
 	Params *SqlSummaryJobParameters
 }
 
+func serverNameStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.ServerName, nil
+	}
+}
+
+func table1NameStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.Table1, nil
+	}
+}
+
+func table2NameStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.Table2, nil
+	}
+}
+
+func query1ParamStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.Query1, nil
+	}
+}
+
+func query2ParamStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
+	return func(ctx context.Context) (*string, error) {
+		return &sql.Params.Query2, nil
+	}
+}
+
+func connectionStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.ContinueFunc[string, SqlConnection] {
+	return func(ctx context.Context, serverName *string) (*SqlConnection, error) {
+		return sql.GetConnection(ctx, serverName)
+	}
+}
+
+func checkAuthStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[interface{}] {
+	return asynctask.ActionToFunc(func(ctx context.Context) error {
+		return sql.CheckAuth(ctx)
+	})
+}
+
+func tableClientStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlConnection, string, SqlTableClient] {
+	return func(ctx context.Context, conn *SqlConnection, tableName *string) (*SqlTableClient, error) {
+		return sql.GetTableClient(ctx, conn, tableName)
+	}
+}
+
+func queryTableStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlTableClient, string, SqlQueryResult] {
+	return func(ctx context.Context, tableClient *SqlTableClient, query *string) (*SqlQueryResult, error) {
+		return sql.ExecuteQuery(ctx, tableClient, query)
+	}
+}
+
+func summarizeQueryResultStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlQueryResult, SqlQueryResult, SummarizedResult] {
+	return func(ctx context.Context, query1Result *SqlQueryResult, query2Result *SqlQueryResult) (*SummarizedResult, error) {
+		return sql.SummarizeQueryResult(ctx, query1Result, query2Result)
+	}
+}
+
+func emailNotificationStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[interface{}] {
+	return asynctask.ActionToFunc(func(ctx context.Context) error {
+		return sql.EmailNotification(ctx)
+	})
+}
+
+func BuildJob(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinition[SqlSummaryJobLibAdvanced], error) {
+	job := asyncjob.NewJobDefinition[SqlSummaryJobLibAdvanced]("sqlSummaryJob")
+	serverNameParamTask, err := asyncjob.StepFromJobInputMethod(bCtx, job, "ServerNameParam", serverNameStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step ServerNameParam: %w", err)
+	}
+
+	connTsk, err := asyncjob.StepAfterFromJobInputMethod(bCtx, job, "GetConnection", serverNameParamTask, connectionStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step GetConnection: %w", err)
+	}
+
+	checkAuthTask, err := asyncjob.StepFromJobInputMethod(bCtx, job, "CheckAuth", checkAuthStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step CheckAuth: %w", err)
+	}
+
+	table1ParamTsk, err := asyncjob.StepFromJobInputMethod(bCtx, job, "Table1Param", table1NameStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Table1Param: %w", err)
+	}
+
+	table1ClientTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "GetTableClient1", connTsk, table1ParamTsk, tableClientStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step GetTableClient1: %w", err)
+	}
+
+	query1ParamTsk, err := asyncjob.StepFromJobInputMethod(bCtx, job, "Query1Param", query1ParamStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Query1Param: %w", err)
+	}
+
+	qery1ResultTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, queryTableStepFunc, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step QueryTable1: %w", err)
+	}
+
+	table2ParamTsk, err := asyncjob.StepFromJobInputMethod(bCtx, job, "Table2NameParam", table2NameStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Table2NameParam: %w", err)
+	}
+
+	table2ClientTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "GetTableClient2", connTsk, table2ParamTsk, tableClientStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step GetTableClient2: %w", err)
+	}
+
+	query2ParamTsk, err := asyncjob.StepFromJobInputMethod(bCtx, job, "Query2Param", query2ParamStepFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Query2Param: %w", err)
+	}
+
+	qery2ResultTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, queryTableStepFunc, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step QueryTable2: %w", err)
+	}
+
+	summaryTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "Summarize", qery1ResultTsk, qery2ResultTsk, summarizeQueryResultStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Summarize: %w", err)
+	}
+
+	_, err = asyncjob.StepFromJobInputMethod(bCtx, job, "EmailNotification", emailNotificationStepFunc, asyncjob.ExecuteAfter(summaryTsk), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step EmailNotification: %w", err)
+	}
+	return job, nil
+}
+
 type SqlSummaryJobLib struct {
 }
 
@@ -121,84 +256,6 @@ func (sql *SqlSummaryJobLib) Logging(ctx context.Context, msg string) {
 	} else {
 		fmt.Println(msg)
 	}
-}
-
-func BuildJob(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinition[SqlSummaryJobLibAdvanced], error) {
-	job := asyncjob.NewJobDefinition[SqlSummaryJobLibAdvanced]("sqlSummaryJob")
-	serverNameParamTask, err := asyncjob.StepFromJobInputMethod(bCtx, job, "serverName", func(input *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
-		return func(_ context.Context) (*string, error) {
-			return &input.Params.ServerName, nil
-		}
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	connTsk, _ := asyncjob.StepAfterFromJobInputMethod(bCtx, job, "GetConnection", serverNameParamTask, func(input *SqlSummaryJobLibAdvanced) asynctask.ContinueFunc[string, SqlConnection] {
-		return func(ctx context.Context, serverName *string) (*SqlConnection, error) {
-			return input.GetConnection(ctx, serverName)
-		}
-	}, asyncjob.WithContextEnrichment(EnrichContext))
-
-	checkAuthTask, _ := asyncjob.StepFromJobInputMethod(bCtx, job, "CheckAuth", func(input *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[interface{}] {
-		return asynctask.ActionToFunc(func(ctx context.Context) error {
-			return input.CheckAuth(ctx)
-		})
-	})
-
-	table1ParamTsk, _ := asyncjob.StepFromJobInputMethod(bCtx, job, "table1", func(input *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
-		return func(_ context.Context) (*string, error) {
-			return &input.Params.Table1, nil
-		}
-	})
-	table1ClientTsk, _ := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "getTableClient1", connTsk, table1ParamTsk, func(input *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlConnection, string, SqlTableClient] {
-		return func(ctx context.Context, conn *SqlConnection, tableName *string) (*SqlTableClient, error) {
-			return input.GetTableClient(ctx, conn, tableName)
-		}
-	}, asyncjob.WithContextEnrichment(EnrichContext))
-	query1ParamTsk, _ := asyncjob.StepFromJobInputMethod(bCtx, job, "query1", func(input *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
-		return func(_ context.Context) (*string, error) {
-			return &input.Params.Query1, nil
-		}
-	})
-	qery1ResultTsk, _ := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, func(input *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlTableClient, string, SqlQueryResult] {
-		return func(ctx context.Context, tableClient *SqlTableClient, query *string) (*SqlQueryResult, error) {
-			return input.ExecuteQuery(ctx, tableClient, query)
-		}
-	}, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
-
-	table2ParamTsk, _ := asyncjob.StepFromJobInputMethod(bCtx, job, "table2", func(input *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
-		return func(_ context.Context) (*string, error) {
-			return &input.Params.Table2, nil
-		}
-	})
-	table2ClientTsk, _ := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "getTableClient2", connTsk, table2ParamTsk, func(input *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlConnection, string, SqlTableClient] {
-		return func(ctx context.Context, conn *SqlConnection, tableName *string) (*SqlTableClient, error) {
-			return input.GetTableClient(ctx, conn, tableName)
-		}
-	}, asyncjob.WithContextEnrichment(EnrichContext))
-	query2ParamTsk, _ := asyncjob.StepFromJobInputMethod(bCtx, job, "query2", func(input *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[string] {
-		return func(_ context.Context) (*string, error) {
-			return &input.Params.Query2, nil
-		}
-	})
-	qery2ResultTsk, _ := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, func(input *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlTableClient, string, SqlQueryResult] {
-		return func(ctx context.Context, tableClient *SqlTableClient, query *string) (*SqlQueryResult, error) {
-			return input.ExecuteQuery(ctx, tableClient, query)
-		}
-	}, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
-
-	summaryTsk, _ := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "summarize", qery1ResultTsk, qery2ResultTsk, func(input *SqlSummaryJobLibAdvanced) asynctask.AfterBothFunc[SqlQueryResult, SqlQueryResult, SummarizedResult] {
-		return func(ctx context.Context, queryResult1 *SqlQueryResult, queryResult2 *SqlQueryResult) (*SummarizedResult, error) {
-			return input.SummarizeQueryResult(ctx, queryResult1, queryResult2)
-		}
-	}, asyncjob.WithContextEnrichment(EnrichContext))
-	asyncjob.StepFromJobInputMethod(bCtx, job, "emailNotification", func(input *SqlSummaryJobLibAdvanced) asynctask.AsyncFunc[interface{}] {
-		return asynctask.ActionToFunc(func(ctx context.Context) error {
-			return input.EmailNotification(ctx)
-		})
-	}, asyncjob.ExecuteAfter(summaryTsk), asyncjob.WithContextEnrichment(EnrichContext))
-	return job, nil
 }
 
 func (sql *SqlSummaryJobLib) BuildJob(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) *asyncjob.JobDefinition[SqlSummaryJobParameters] {
