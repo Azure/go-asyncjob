@@ -2,120 +2,216 @@ package asyncjob
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
-	"time"
 
 	"github.com/Azure/go-asyncjob/graph"
 	"github.com/Azure/go-asynctask"
 )
 
-type JobState string
+// Interface for a job definition
+type JobDefinitionMeta interface {
+	GetName() string
+	GetStep(stepName string) (StepDefinitionMeta, bool) // TODO: switch bool to error
 
-const JobStatePending JobState = "pending"
-const JobStateRunning JobState = "running"
-const JobStateCompleted JobState = "completed"
-
-type JobInterface interface {
-	GetStep(stepName string) (StepMeta, bool) // switch bool to error
-	AddStep(step StepMeta, precedingSteps ...StepMeta)
-	RootStep() *StepInfo[interface{}]
-
-	Start(ctx context.Context) error
-
-	RuntimeContext() context.Context
+	// not exposing for now.
+	addStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta)
+	getRootStep() StepDefinitionMeta
 }
 
-type Job struct {
-	Name  string
-	Steps map[string]StepMeta
-
-	state    JobState
-	rootStep *StepInfo[interface{}]
-	jobStart *sync.WaitGroup
-	stepsDag *graph.Graph[*stepNode]
-
-	// runtimeCtx is captured to separate build context and runtime context.
-	// golang not recommending to store context in the struct. I don't have better idea.
-	runtimeCtx context.Context
+// JobDefinition defines a job with child steps, and step is organized in a Directed Acyclic Graph (DAG).
+type JobDefinition[T any] struct {
+	Name     string
+	steps    map[string]StepDefinitionMeta
+	stepsDag *graph.Graph[StepDefinitionMeta]
+	rootStep *StepDefinition[T]
 }
 
-var _ JobInterface = &Job{}
-
-func NewJob(name string) *Job {
-	jobStart := sync.WaitGroup{}
-	jobStart.Add(1)
-	j := &Job{
-		Name:  name,
-		Steps: make(map[string]StepMeta),
-
-		jobStart: &jobStart,
-		state:    JobStatePending,
-		stepsDag: graph.NewGraph[*stepNode](stepConn),
+// Create new JobDefinition
+//   it is suggest to build jobDefinition statically on process start, and reuse it for each job instance.
+func NewJobDefinition[T any](name string) *JobDefinition[T] {
+	j := &JobDefinition[T]{
+		Name:     name,
+		steps:    make(map[string]StepDefinitionMeta),
+		stepsDag: graph.NewGraph[StepDefinitionMeta](connectStepDefinition),
 	}
 
-	rootStep := newStepInfo[interface{}](name, stepTypeRoot)
-	rootJobFunc := func(ctx context.Context) (*interface{}, error) {
-		// this will pause all steps from starting, until Start() method is called.
-		jobStart.Wait()
-		j.rootStep.executionData.StartTime = time.Now()
-		j.state = JobStateRunning
-		j.rootStep.state = StepStateCompleted
-		j.rootStep.executionData.Duration = time.Since(j.rootStep.executionData.StartTime)
-		return nil, nil
-	}
-
-	rootStep.task = asynctask.Start(context.Background(), rootJobFunc)
+	rootStep := newStepDefinition[T](name, stepTypeRoot)
 	j.rootStep = rootStep
 
-	j.Steps[j.rootStep.GetName()] = j.rootStep
-	j.stepsDag.AddNode(newStepNode(j.rootStep))
+	j.steps[j.rootStep.GetName()] = j.rootStep
+	j.stepsDag.AddNode(j.rootStep)
 
 	return j
 }
 
-func (j *Job) RootStep() *StepInfo[interface{}] {
-	return j.rootStep
+// Start execution of the job definition.
+//   this will create and return new instance of the job
+//   caller will then be able to wait for the job instance
+func (jd *JobDefinition[T]) Start(ctx context.Context, input *T, jobOptions ...JobOptionPreparer) *JobInstance[T] {
+
+	ji := newJobInstance(jd, input, jobOptions...)
+	ji.start(ctx)
+
+	return ji
 }
 
-func (j *Job) GetStep(stepName string) (StepMeta, bool) {
-	stepMeta, ok := j.Steps[stepName]
+func (jd *JobDefinition[T]) getRootStep() StepDefinitionMeta {
+	return jd.rootStep
+}
+
+func (jd *JobDefinition[T]) GetName() string {
+	return jd.Name
+}
+
+// GetStep returns the stepDefinition by name
+func (jd *JobDefinition[T]) GetStep(stepName string) (StepDefinitionMeta, bool) {
+	stepMeta, ok := jd.steps[stepName]
 	return stepMeta, ok
 }
 
-func (j *Job) AddStep(step StepMeta, precedingSteps ...StepMeta) {
-	// TODO: check conflict
-	j.Steps[step.GetName()] = step
-	stepNode := newStepNode(step)
-	j.stepsDag.AddNode(stepNode)
+// AddStep adds a step to the job definition, with optional preceding steps
+func (jd *JobDefinition[T]) addStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta) {
+	jd.steps[step.GetName()] = step
+	jd.stepsDag.AddNode(step)
 	for _, precedingStep := range precedingSteps {
-		j.stepsDag.Connect(newStepNode(precedingStep), stepNode)
+		jd.stepsDag.Connect(precedingStep, step)
 	}
 }
 
-func (j *Job) Start(ctx context.Context) error {
-	// TODO: lock Steps, no modification to job execution graph
-	j.jobStart.Done()
-	j.runtimeCtx = ctx
-	if err := j.rootStep.Wait(ctx); err != nil {
-		return fmt.Errorf("root job %s failed: %w", j.rootStep.name, err)
+// Visualize the job definition in graphviz dot format
+func (jd *JobDefinition[T]) Visualize() (string, error) {
+	return jd.stepsDag.ToDotGraph()
+}
+
+type JobInstanceMeta interface {
+	GetJobDefinition() JobDefinitionMeta
+	GetStepInstance(stepName string) (StepInstanceMeta, bool)
+	Wait(context.Context) error
+
+	// not exposing for now
+	addStepInstance(step StepInstanceMeta, precedingSteps ...StepInstanceMeta)
+
+	// future considering:
+	//  - return result of given step
+}
+
+type JobExecutionOptions struct {
+	Id              string
+	RunSequentially bool
+}
+
+type JobOptionPreparer func(*JobExecutionOptions) *JobExecutionOptions
+
+func WithJobId(jobId string) JobOptionPreparer {
+	return func(options *JobExecutionOptions) *JobExecutionOptions {
+		options.Id = jobId
+		return options
 	}
+}
+
+func WithSequentialExecution() JobOptionPreparer {
+	return func(options *JobExecutionOptions) *JobExecutionOptions {
+		options.RunSequentially = true
+		return options
+	}
+}
+
+// JobInstance is the instance of a jobDefinition
+type JobInstance[T any] struct {
+	jobOptions *JobExecutionOptions
+	input      *T
+	Definition *JobDefinition[T]
+	jobStart   *sync.WaitGroup
+	rootStep   *StepInstance[T]
+	steps      map[string]StepInstanceMeta
+	stepsDag   *graph.Graph[StepInstanceMeta]
+}
+
+func newJobInstance[T any](jd *JobDefinition[T], input *T, jobInstanceOptions ...JobOptionPreparer) *JobInstance[T] {
+	ji := &JobInstance[T]{
+		Definition: jd,
+		input:      input,
+		steps:      map[string]StepInstanceMeta{},
+		stepsDag:   graph.NewGraph[StepInstanceMeta](connectStepInstance),
+		jobOptions: &JobExecutionOptions{},
+	}
+
+	for _, decorator := range jobInstanceOptions {
+		ji.jobOptions = decorator(ji.jobOptions)
+	}
+
+	return ji
+}
+
+func (ji *JobInstance[T]) start(ctx context.Context) {
+	// create root step instance
+	ji.rootStep = newStepInstance(ji.Definition.rootStep, ji)
+	ji.rootStep.task = asynctask.NewCompletedTask[T](ji.input)
+	ji.rootStep.state = StepStateCompleted
+	ji.steps[ji.rootStep.GetName()] = ji.rootStep
+	ji.stepsDag.AddNode(ji.rootStep)
+
+	// construct job instance graph, with TopologySort ordering
+	orderedSteps := ji.Definition.stepsDag.TopologicalSort()
+	for _, stepDef := range orderedSteps {
+		if stepDef.GetName() == ji.Definition.Name {
+			continue
+		}
+		ji.steps[stepDef.GetName()] = stepDef.createStepInstance(ctx, ji)
+
+		if ji.jobOptions.RunSequentially {
+			ji.steps[stepDef.GetName()].Waitable().Wait(ctx)
+		}
+	}
+}
+
+func (ji *JobInstance[T]) GetJobInstanceId() string {
+	return ji.jobOptions.Id
+}
+
+func (ji *JobInstance[T]) GetJobDefinition() JobDefinitionMeta {
+	return ji.Definition
+}
+
+// GetStepInstance returns the stepInstance by name
+func (ji *JobInstance[T]) GetStepInstance(stepName string) (StepInstanceMeta, bool) {
+	stepMeta, ok := ji.steps[stepName]
+	return stepMeta, ok
+}
+
+func (ji *JobInstance[T]) addStepInstance(step StepInstanceMeta, precedingSteps ...StepInstanceMeta) {
+	ji.steps[step.GetName()] = step
+
+	ji.stepsDag.AddNode(step)
+	for _, precedingStep := range precedingSteps {
+		ji.stepsDag.Connect(precedingStep, step)
+	}
+}
+
+// Wait for all steps in the job to finish.
+func (ji *JobInstance[T]) Wait(ctx context.Context) error {
+	var tasks []asynctask.Waitable
+	for _, step := range ji.steps {
+		tasks = append(tasks, step.Waitable())
+	}
+
+	err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, tasks...)
+
+	// return rootCaused error if possible
+	if err != nil {
+		jobErr := &JobError{}
+		if errors.As(err, &jobErr) {
+			return jobErr.RootCause()
+		}
+
+		return err
+	}
+
 	return nil
 }
 
-func (j *Job) RuntimeContext() context.Context {
-	return j.runtimeCtx
-}
-
-func (j *Job) Wait(ctx context.Context) error {
-	var tasks []asynctask.Waitable
-	for _, step := range j.Steps {
-		tasks = append(tasks, step.Waitable())
-	}
-	return asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, tasks...)
-}
-
-// Visualize return a DAG of the job execution graph
-func (j *Job) Visualize() (string, error) {
-	return j.stepsDag.ToDotGraph()
+// Visualize the job instance in graphviz dot format
+func (jd *JobInstance[T]) Visualize() (string, error) {
+	return jd.stepsDag.ToDotGraph()
 }

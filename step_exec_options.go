@@ -18,18 +18,18 @@ type StepExecutionOptions struct {
 type StepErrorPolicy struct{}
 
 type RetryPolicy interface {
-	ShouldRetry(error) bool
-	SleepInterval() time.Duration
+	ShouldRetry(error) (bool, time.Duration)
 }
 
 // StepContextPolicy allows context enrichment before passing to step.
-type StepContextPolicy func(context.Context) context.Context
+//   With StepInstanceMeta you can access StepInstance, StepDefinition, JobInstance, JobDefinition.
+type StepContextPolicy func(context.Context, StepInstanceMeta) context.Context
 
 type ExecutionOptionPreparer func(*StepExecutionOptions) *StepExecutionOptions
 
 // Add precedence to a step.
 //   without taking input from it(use StepAfter/StepAfterBoth otherwise)
-func ExecuteAfter(step StepMeta) ExecutionOptionPreparer {
+func ExecuteAfter(step StepDefinitionMeta) ExecutionOptionPreparer {
 	return func(options *StepExecutionOptions) *StepExecutionOptions {
 		options.DependOn = append(options.DependOn, step.GetName())
 		return options
@@ -52,7 +52,7 @@ func WithTimeout(timeout time.Duration) ExecutionOptionPreparer {
 	}
 }
 
-func WithEnrichedContext(contextPolicy StepContextPolicy) ExecutionOptionPreparer {
+func WithContextEnrichment(contextPolicy StepContextPolicy) ExecutionOptionPreparer {
 	return func(options *StepExecutionOptions) *StepExecutionOptions {
 		options.ContextPolicy = contextPolicy
 		return options

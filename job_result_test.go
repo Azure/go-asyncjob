@@ -10,18 +10,20 @@ import (
 
 func TestSimpleJobWithResult(t *testing.T) {
 	t.Parallel()
-	sb := &SqlSummaryJobLib{}
 
-	jd, err := sb.BuildJobWithResult(context.Background(), map[string]asyncjob.RetryPolicy{})
+	jd, err := BuildJobWithResult(context.Background(), map[string]asyncjob.RetryPolicy{})
 	assert.NoError(t, err)
 	renderGraph(t, jd)
 
-	jobInstance := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobParameters{
-		ServerName: "server1",
-		Table1:     "table1",
-		Query1:     "query1",
-		Table2:     "table2",
-		Query2:     "query2",
+	jobInstance := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLibAdvanced{
+		Params: &SqlSummaryJobParameters{
+			ServerName: "server2",
+			Table1:     "table3",
+			Query1:     "query3",
+			Table2:     "table4",
+			Query2:     "query4",
+		},
+		SqlSummaryJobLib: SqlSummaryJobLib{},
 	})
 	jobErr := jobInstance.Wait(context.Background())
 	assert.NoError(t, jobErr)
