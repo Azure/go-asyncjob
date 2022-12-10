@@ -85,67 +85,67 @@ func emailNotificationStepFunc(sql *SqlSummaryJobLibAdvanced) asynctask.AsyncFun
 
 func BuildJob(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinition[SqlSummaryJobLibAdvanced], error) {
 	job := asyncjob.NewJobDefinition[SqlSummaryJobLibAdvanced]("sqlSummaryJob")
-	serverNameParamTask, err := asyncjob.StepFromJobInputMethod(bCtx, job, "ServerNameParam", serverNameStepFunc)
+	serverNameParamTask, err := asyncjob.AddStep(bCtx, job, "ServerNameParam", serverNameStepFunc)
 	if err != nil {
 		return nil, fmt.Errorf("error adding step ServerNameParam: %w", err)
 	}
 
-	connTsk, err := asyncjob.StepAfterFromJobInputMethod(bCtx, job, "GetConnection", serverNameParamTask, connectionStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	connTsk, err := asyncjob.StepAfter(bCtx, job, "GetConnection", serverNameParamTask, connectionStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step GetConnection: %w", err)
 	}
 
-	checkAuthTask, err := asyncjob.StepFromJobInputMethod(bCtx, job, "CheckAuth", checkAuthStepFunc)
+	checkAuthTask, err := asyncjob.AddStep(bCtx, job, "CheckAuth", checkAuthStepFunc)
 	if err != nil {
 		return nil, fmt.Errorf("error adding step CheckAuth: %w", err)
 	}
 
-	table1ParamTsk, err := asyncjob.StepFromJobInputMethod(bCtx, job, "Table1Param", table1NameStepFunc)
+	table1ParamTsk, err := asyncjob.AddStep(bCtx, job, "Table1Param", table1NameStepFunc)
 	if err != nil {
 		return nil, fmt.Errorf("error adding step Table1Param: %w", err)
 	}
 
-	table1ClientTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "GetTableClient1", connTsk, table1ParamTsk, tableClientStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	table1ClientTsk, err := asyncjob.StepAfterBoth(bCtx, job, "GetTableClient1", connTsk, table1ParamTsk, tableClientStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step GetTableClient1: %w", err)
 	}
 
-	query1ParamTsk, err := asyncjob.StepFromJobInputMethod(bCtx, job, "Query1Param", query1ParamStepFunc)
+	query1ParamTsk, err := asyncjob.AddStep(bCtx, job, "Query1Param", query1ParamStepFunc)
 	if err != nil {
 		return nil, fmt.Errorf("error adding step Query1Param: %w", err)
 	}
 
-	qery1ResultTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, queryTableStepFunc, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	qery1ResultTsk, err := asyncjob.StepAfterBoth(bCtx, job, "QueryTable1", table1ClientTsk, query1ParamTsk, queryTableStepFunc, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step QueryTable1: %w", err)
 	}
 
-	table2ParamTsk, err := asyncjob.StepFromJobInputMethod(bCtx, job, "Table2NameParam", table2NameStepFunc)
+	table2ParamTsk, err := asyncjob.AddStep(bCtx, job, "Table2NameParam", table2NameStepFunc)
 	if err != nil {
 		return nil, fmt.Errorf("error adding step Table2NameParam: %w", err)
 	}
 
-	table2ClientTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "GetTableClient2", connTsk, table2ParamTsk, tableClientStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	table2ClientTsk, err := asyncjob.StepAfterBoth(bCtx, job, "GetTableClient2", connTsk, table2ParamTsk, tableClientStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step GetTableClient2: %w", err)
 	}
 
-	query2ParamTsk, err := asyncjob.StepFromJobInputMethod(bCtx, job, "Query2Param", query2ParamStepFunc)
+	query2ParamTsk, err := asyncjob.AddStep(bCtx, job, "Query2Param", query2ParamStepFunc)
 	if err != nil {
 		return nil, fmt.Errorf("error adding step Query2Param: %w", err)
 	}
 
-	qery2ResultTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, queryTableStepFunc, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	qery2ResultTsk, err := asyncjob.StepAfterBoth(bCtx, job, "QueryTable2", table2ClientTsk, query2ParamTsk, queryTableStepFunc, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step QueryTable2: %w", err)
 	}
 
-	summaryTsk, err := asyncjob.StepAfterBothFromJobInputMethod(bCtx, job, "Summarize", qery1ResultTsk, qery2ResultTsk, summarizeQueryResultStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	summaryTsk, err := asyncjob.StepAfterBoth(bCtx, job, "Summarize", qery1ResultTsk, qery2ResultTsk, summarizeQueryResultStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step Summarize: %w", err)
 	}
 
-	_, err = asyncjob.StepFromJobInputMethod(bCtx, job, "EmailNotification", emailNotificationStepFunc, asyncjob.ExecuteAfter(summaryTsk), asyncjob.WithContextEnrichment(EnrichContext))
+	_, err = asyncjob.AddStep(bCtx, job, "EmailNotification", emailNotificationStepFunc, asyncjob.ExecuteAfter(summaryTsk), asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step EmailNotification: %w", err)
 	}

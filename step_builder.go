@@ -8,12 +8,8 @@ import (
 	"github.com/Azure/go-asynctask"
 )
 
-// StepFromJobInputMethod construct the step from the method on job input
-//   compare to AddStep,
-//     the benifit would be less chance of shared state between job instances (i.e. method have a receiver, that receiver is shared between job instances)
-//     you can construct the step purely on jobInput (unique per job), thus, the method should be defined on jobInput.
-//   if your stepFunc doesn't have receiver, then AddStep is simplier.
-func StepFromJobInputMethod[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFuncCreator func(input *JT) asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+// AddStep adds a step to the job definition.
+func AddStep[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFuncCreator func(input *JT) asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
 	stepD := newStepDefinition[ST](stepName, stepTypeTask, optionDecorators...)
 	precedingDefSteps, err := getDependsOnSteps(stepD, j)
 	if err != nil {
@@ -41,12 +37,8 @@ func StepFromJobInputMethod[JT, ST any](bCtx context.Context, j *JobDefinition[J
 	return stepD, nil
 }
 
-// StepAfterFromJobInputMethod construct the step from the method on job input, with a parent step
-//   compare to StepAfter,
-//     the benifit would be less chance of shared state between job instances (i.e. method have a receiver, that receiver is shared between job instances)
-//     you can construct the step purely on jobInput (unique per job), thus, the method should be defined on jobInput.
-//   if your stepFunc doesn't have receiver, then StepAfter is simplier.
-func StepAfterFromJobInputMethod[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepAfterFuncCreator func(input *JT) asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+// StepAfter add a step after a preceding step, also take input from that preceding step
+func StepAfter[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepAfterFuncCreator func(input *JT) asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
 	// check parentStepT is in this job
 	if get, ok := j.GetStep(parentStep.GetName()); !ok || get != parentStep {
 		return nil, fmt.Errorf("step [%s] not found in job", parentStep.GetName())
@@ -74,12 +66,8 @@ func StepAfterFromJobInputMethod[JT, PT, ST any](bCtx context.Context, j *JobDef
 	return stepD, nil
 }
 
-// StepAfterBothFromJobInputMethod construct the step from the method on job input, with two parent step
-//   compare to StepAfterBoth,
-//     the benifit would be less chance of shared state between job instances (i.e. method have a receiver, that receiver is shared between job instances)
-//     you can construct the step purely on jobInput (unique per job), thus, the method should be defined on jobInput.
-//   if your stepFunc doesn't have receiver, then StepAfterBoth is simplier.
-func StepAfterBothFromJobInputMethod[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepAfterBothFuncCreator func(input *JT) asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+// StepAfterBoth add a step after both preceding steps, also take input from both preceding steps
+func StepAfterBoth[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepAfterBothFuncCreator func(input *JT) asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
 	// check parentStepT is in this job
 	if get, ok := j.GetStep(parentStep1.GetName()); !ok || get != parentStep1 {
 		return nil, fmt.Errorf("step [%s] not found in job", parentStep1.GetName())
@@ -117,20 +105,19 @@ func StepAfterBothFromJobInputMethod[JT, PT1, PT2, ST any](bCtx context.Context,
 	return stepD, nil
 }
 
-// AddStep add a step without take input
-//   you can still choose to execute after certain step by pass asyncjob.ExecuteAfter in optionDecorators
-func AddStep[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFunc asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	return StepFromJobInputMethod(bCtx, j, stepName, func(j *JT) asynctask.AsyncFunc[ST] { return stepFunc }, optionDecorators...)
+// AddStepWithStaticFunc is same as AddStep, but the stepFunc passed in shouldn't have receiver. (or you get shared state between job instances)
+func AddStepWithStaticFunc[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFunc asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	return AddStep(bCtx, j, stepName, func(j *JT) asynctask.AsyncFunc[ST] { return stepFunc }, optionDecorators...)
 }
 
-// StepAfter add a step after a preceding step, also take input from that preceding step
-func StepAfter[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepFunc asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	return StepAfterFromJobInputMethod(bCtx, j, stepName, parentStep, func(j *JT) asynctask.ContinueFunc[PT, ST] { return stepFunc }, optionDecorators...)
+// StepAfterWithStaticFunc is same as StepAfter, but the stepFunc passed in shouldn't have receiver. (or you get shared state between job instances)
+func StepAfterWithStaticFunc[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepFunc asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	return StepAfter(bCtx, j, stepName, parentStep, func(j *JT) asynctask.ContinueFunc[PT, ST] { return stepFunc }, optionDecorators...)
 }
 
-// StepAfterBoth add a step after both preceding steps, also take input from both preceding steps
-func StepAfterBoth[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepFunc asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	return StepAfterBothFromJobInputMethod(bCtx, j, stepName, parentStep1, parentStep2, func(j *JT) asynctask.AfterBothFunc[PT1, PT2, ST] { return stepFunc }, optionDecorators...)
+// StepAfterBothWithStaticFunc is same as StepAfterBoth, but the stepFunc passed in shouldn't have receiver. (or you get shared state between job instances)
+func StepAfterBothWithStaticFunc[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepFunc asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	return StepAfterBoth(bCtx, j, stepName, parentStep1, parentStep2, func(j *JT) asynctask.AfterBothFunc[PT1, PT2, ST] { return stepFunc }, optionDecorators...)
 }
 
 func instrumentedAddStep[T any](stepInstance *StepInstance[T], precedingTasks []asynctask.Waitable, stepFunc func(ctx context.Context) (*T, error)) func(ctx context.Context) (*T, error) {
