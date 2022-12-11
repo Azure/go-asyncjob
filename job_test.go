@@ -87,11 +87,10 @@ func TestJobPanic(t *testing.T) {
 	err := jobInstance.Wait(context.Background())
 	assert.Error(t, err)
 
-	/*  panic is out of reach of jobError, but planning to catch panic in the future
 	jobErr := &asyncjob.JobError{}
 	assert.True(t, errors.As(err, &jobErr))
 	assert.Equal(t, jobErr.Code, asyncjob.ErrStepFailed)
-	assert.Equal(t, jobErr.StepName, "getTableClient1")*/
+	assert.Equal(t, jobErr.StepInstance.GetName(), "GetTableClient2")
 }
 
 func TestJobStepRetry(t *testing.T) {
