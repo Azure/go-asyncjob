@@ -15,7 +15,7 @@ func TestSimpleJobWithResult(t *testing.T) {
 	assert.NoError(t, err)
 	renderGraph(t, jd)
 
-	jobInstance := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLibAdvanced{
+	jobInstance := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLib{
 		Params: &SqlSummaryJobParameters{
 			ServerName: "server2",
 			Table1:     "table3",
@@ -23,7 +23,6 @@ func TestSimpleJobWithResult(t *testing.T) {
 			Table2:     "table4",
 			Query2:     "query4",
 		},
-		SqlSummaryJobLib: SqlSummaryJobLib{},
 	})
 	jobErr := jobInstance.Wait(context.Background())
 	assert.NoError(t, jobErr)
