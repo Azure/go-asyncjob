@@ -12,7 +12,7 @@ type JobDefinitionWithResult[Tin, Tout any] struct {
 func JobWithResult[Tin, Tout any](jd *JobDefinition[Tin], resultStep *StepDefinition[Tout]) (*JobDefinitionWithResult[Tin, Tout], error) {
 	sdGet, ok := jd.GetStep(resultStep.GetName())
 	if !ok || sdGet != resultStep {
-		return nil, ErrStepNotInJob
+		return nil, ErrRefStepNotInJob
 	}
 
 	return &JobDefinitionWithResult[Tin, Tout]{

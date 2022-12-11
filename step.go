@@ -154,7 +154,7 @@ func (si *StepInstance[T]) GetState() StepState {
 func (si *StepInstance[T]) EnrichContext(ctx context.Context) (result context.Context) {
 	result = ctx
 	if si.Definition.executionOptions.ContextPolicy != nil {
-		// handle panic from user code
+		// TODO: bubble up the error somehow
 		defer func() {
 			if r := recover(); r != nil {
 				fmt.Println("Recovered in EnrichContext", r)

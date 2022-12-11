@@ -3,6 +3,7 @@ package asyncjob
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"github.com/Azure/go-asynctask"
@@ -10,6 +11,10 @@ import (
 
 // AddStep adds a step to the job definition.
 func AddStep[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFuncCreator func(input *JT) asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	if j.Sealed() {
+		return nil, ErrAddStepInSealedJob
+	}
+
 	stepD := newStepDefinition[ST](stepName, stepTypeTask, optionDecorators...)
 	precedingDefSteps, err := getDependsOnSteps(stepD, j)
 	if err != nil {
@@ -27,8 +32,21 @@ func AddStep[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName st
 		precedingInstances, precedingTasks, _ := getDependsOnStepInstances(stepD, ji)
 
 		jiStrongTyped := ji.(*JobInstance[JT])
+		stepFunc := stepFuncCreator(jiStrongTyped.input)
+		stepFuncWithPanicHandling := func(ctx context.Context) (result *ST, err error) {
+			// handle panic from user code
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("Panic cought: %v, StackTrace: %s", r, debug.Stack())
+				}
+			}()
+
+			result, err = stepFunc(ctx)
+			return result, err
+		}
+
 		stepInstance := newStepInstance[ST](stepD, ji)
-		stepInstance.task = asynctask.Start(ctx, instrumentedAddStep(stepInstance, precedingTasks, stepFuncCreator(jiStrongTyped.input)))
+		stepInstance.task = asynctask.Start(ctx, instrumentedAddStep(stepInstance, precedingTasks, stepFuncWithPanicHandling))
 		ji.addStepInstance(stepInstance, precedingInstances...)
 		return stepInstance
 	}
@@ -39,6 +57,10 @@ func AddStep[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName st
 
 // StepAfter add a step after a preceding step, also take input from that preceding step
 func StepAfter[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepAfterFuncCreator func(input *JT) asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	if j.Sealed() {
+		return nil, ErrAddStepInSealedJob
+	}
+
 	// check parentStepT is in this job
 	if get, ok := j.GetStep(parentStep.GetName()); !ok || get != parentStep {
 		return nil, fmt.Errorf("step [%s] not found in job", parentStep.GetName())
@@ -55,9 +77,22 @@ func StepAfter[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepN
 		precedingInstances, precedingTasks, _ := getDependsOnStepInstances(stepD, ji)
 
 		jiStrongTyped := ji.(*JobInstance[JT])
+		stepFunc := stepAfterFuncCreator(jiStrongTyped.input)
+		stepFuncWithPanicHandling := func(ctx context.Context, pt *PT) (result *ST, err error) {
+			// handle panic from user code
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("Panic cought: %v, StackTrace: %s", r, debug.Stack())
+				}
+			}()
+
+			result, err = stepFunc(ctx, pt)
+			return result, err
+		}
+
 		parentStepInstance := getStrongTypedStepInstance(parentStep, ji)
 		stepInstance := newStepInstance[ST](stepD, ji)
-		stepInstance.task = asynctask.ContinueWith(ctx, parentStepInstance.task, instrumentedStepAfter(stepInstance, precedingTasks, stepAfterFuncCreator(jiStrongTyped.input)))
+		stepInstance.task = asynctask.ContinueWith(ctx, parentStepInstance.task, instrumentedStepAfter(stepInstance, precedingTasks, stepFuncWithPanicHandling))
 		ji.addStepInstance(stepInstance, precedingInstances...)
 		return stepInstance
 	}
@@ -68,6 +103,10 @@ func StepAfter[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepN
 
 // StepAfterBoth add a step after both preceding steps, also take input from both preceding steps
 func StepAfterBoth[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepAfterBothFuncCreator func(input *JT) asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	if j.Sealed() {
+		return nil, ErrAddStepInSealedJob
+	}
+
 	// check parentStepT is in this job
 	if get, ok := j.GetStep(parentStep1.GetName()); !ok || get != parentStep1 {
 		return nil, fmt.Errorf("step [%s] not found in job", parentStep1.GetName())
@@ -93,10 +132,22 @@ func StepAfterBoth[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[
 		precedingInstances, precedingTasks, _ := getDependsOnStepInstances(stepD, ji)
 
 		jiStrongTyped := ji.(*JobInstance[JT])
+		stepFunc := stepAfterBothFuncCreator(jiStrongTyped.input)
+		stepFuncWithPanicHandling := func(ctx context.Context, pt1 *PT1, pt2 *PT2) (result *ST, err error) {
+			// handle panic from user code
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("Panic cought: %v, StackTrace: %s", r, debug.Stack())
+				}
+			}()
+
+			result, err = stepFunc(ctx, pt1, pt2)
+			return result, err
+		}
 		parentStepInstance1 := getStrongTypedStepInstance(parentStep1, ji)
 		parentStepInstance2 := getStrongTypedStepInstance(parentStep2, ji)
 		stepInstance := newStepInstance[ST](stepD, ji)
-		stepInstance.task = asynctask.AfterBoth(ctx, parentStepInstance1.task, parentStepInstance2.task, instrumentedStepAfterBoth(stepInstance, precedingTasks, stepAfterBothFuncCreator(jiStrongTyped.input)))
+		stepInstance.task = asynctask.AfterBoth(ctx, parentStepInstance1.task, parentStepInstance2.task, instrumentedStepAfterBoth(stepInstance, precedingTasks, stepFuncWithPanicHandling))
 		ji.addStepInstance(stepInstance, precedingInstances...)
 		return stepInstance
 	}

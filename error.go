@@ -10,7 +10,8 @@ type JobErrorCode string
 const (
 	ErrPrecedentStepFailure JobErrorCode = "precedent step failed"
 	ErrStepFailed           JobErrorCode = "step failed"
-	ErrStepNotInJob         JobErrorCode = "trying to reference to a step not registered in job"
+	ErrRefStepNotInJob      JobErrorCode = "trying to reference to a step not registered in job"
+	ErrAddStepInSealedJob   JobErrorCode = "trying to add step to a sealed job definition"
 )
 
 func (code JobErrorCode) Error() string {
