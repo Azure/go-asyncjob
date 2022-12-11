@@ -14,11 +14,7 @@ import (
 func TestSimpleJob(t *testing.T) {
 	t.Parallel()
 
-	jd, err := BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
-	assert.NoError(t, err)
-	renderGraph(t, jd)
-
-	jobInstance := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLib{
+	jobInstance := SqlSummaryAsyncJobDefinition.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLib{
 		Params: &SqlSummaryJobParameters{
 			ServerName: "server1",
 			Table1:     "table1",
@@ -31,7 +27,7 @@ func TestSimpleJob(t *testing.T) {
 	assert.NoError(t, jobErr)
 	renderGraph(t, jobInstance)
 
-	jobInstance2 := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLib{
+	jobInstance2 := SqlSummaryAsyncJobDefinition.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLib{
 		Params: &SqlSummaryJobParameters{
 			ServerName: "server2",
 			Table1:     "table3",
@@ -48,11 +44,8 @@ func TestSimpleJob(t *testing.T) {
 func TestJobError(t *testing.T) {
 	t.Parallel()
 
-	jd, err := BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
-	assert.NoError(t, err)
-
 	ctx := context.WithValue(context.Background(), testLoggingContextKey, t)
-	jobInstance := jd.Start(ctx, &SqlSummaryJobLib{
+	jobInstance := SqlSummaryAsyncJobDefinition.Start(ctx, &SqlSummaryJobLib{
 		Params: &SqlSummaryJobParameters{
 			ServerName: "server1",
 			Table1:     "table1",
@@ -65,7 +58,7 @@ func TestJobError(t *testing.T) {
 		},
 	})
 
-	err = jobInstance.Wait(context.Background())
+	err := jobInstance.Wait(context.Background())
 	assert.Error(t, err)
 
 	jobErr := &asyncjob.JobError{}
@@ -76,12 +69,9 @@ func TestJobError(t *testing.T) {
 
 func TestJobPanic(t *testing.T) {
 	t.Parallel()
-	jd, err := BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{})
-	assert.NoError(t, err)
 
 	ctx := context.WithValue(context.Background(), testLoggingContextKey, t)
-	ctx = context.WithValue(ctx, "panic-injection.server1.table2", true)
-	jobInstance := jd.Start(ctx, &SqlSummaryJobLib{
+	jobInstance := SqlSummaryAsyncJobDefinition.Start(ctx, &SqlSummaryJobLib{
 		Params: &SqlSummaryJobParameters{
 			ServerName: "server1",
 			Table1:     "table1",
@@ -94,7 +84,7 @@ func TestJobPanic(t *testing.T) {
 		},
 	})
 
-	err = jobInstance.Wait(context.Background())
+	err := jobInstance.Wait(context.Background())
 	assert.Error(t, err)
 
 	/*  panic is out of reach of jobError, but planning to catch panic in the future

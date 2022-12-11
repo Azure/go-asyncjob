@@ -12,6 +12,20 @@ import (
 
 const testLoggingContextKey = "test-logging"
 
+// SqlSummaryAsyncJobDefinition is the job definition for the SqlSummaryJobLib
+//   JobDefinition fit perfectly in init() function
+var SqlSummaryAsyncJobDefinition *asyncjob.JobDefinitionWithResult[SqlSummaryJobLib, SummarizedResult]
+
+func init() {
+	var err error
+	SqlSummaryAsyncJobDefinition, err = BuildJobWithResult(context.Background(), map[string]asyncjob.RetryPolicy{})
+	if err != nil {
+		panic(err)
+	}
+
+	SqlSummaryAsyncJobDefinition.Seal()
+}
+
 type SqlSummaryJobLib struct {
 	Params *SqlSummaryJobParameters
 }

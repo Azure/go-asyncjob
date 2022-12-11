@@ -4,18 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Azure/go-asyncjob/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSimpleJobWithResult(t *testing.T) {
 	t.Parallel()
 
-	jd, err := BuildJobWithResult(context.Background(), map[string]asyncjob.RetryPolicy{})
-	assert.NoError(t, err)
-	renderGraph(t, jd)
-
-	jobInstance := jd.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLib{
+	jobInstance := SqlSummaryAsyncJobDefinition.Start(context.WithValue(context.Background(), testLoggingContextKey, t), &SqlSummaryJobLib{
 		Params: &SqlSummaryJobParameters{
 			ServerName: "server2",
 			Table1:     "table3",

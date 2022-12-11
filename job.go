@@ -13,6 +13,8 @@ import (
 type JobDefinitionMeta interface {
 	GetName() string
 	GetStep(stepName string) (StepDefinitionMeta, bool) // TODO: switch bool to error
+	Seal()
+	Sealed() bool
 
 	// not exposing for now.
 	addStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta)
@@ -21,7 +23,9 @@ type JobDefinitionMeta interface {
 
 // JobDefinition defines a job with child steps, and step is organized in a Directed Acyclic Graph (DAG).
 type JobDefinition[T any] struct {
-	Name     string
+	name string
+
+	sealed   bool
 	steps    map[string]StepDefinitionMeta
 	stepsDag *graph.Graph[StepDefinitionMeta]
 	rootStep *StepDefinition[T]
@@ -31,7 +35,7 @@ type JobDefinition[T any] struct {
 //   it is suggest to build jobDefinition statically on process start, and reuse it for each job instance.
 func NewJobDefinition[T any](name string) *JobDefinition[T] {
 	j := &JobDefinition[T]{
-		Name:     name,
+		name:     name,
 		steps:    make(map[string]StepDefinitionMeta),
 		stepsDag: graph.NewGraph[StepDefinitionMeta](connectStepDefinition),
 	}
@@ -49,6 +53,9 @@ func NewJobDefinition[T any](name string) *JobDefinition[T] {
 //   this will create and return new instance of the job
 //   caller will then be able to wait for the job instance
 func (jd *JobDefinition[T]) Start(ctx context.Context, input *T, jobOptions ...JobOptionPreparer) *JobInstance[T] {
+	if !jd.Sealed() {
+		jd.Seal()
+	}
 
 	ji := newJobInstance(jd, input, jobOptions...)
 	ji.start(ctx)
@@ -61,7 +68,18 @@ func (jd *JobDefinition[T]) getRootStep() StepDefinitionMeta {
 }
 
 func (jd *JobDefinition[T]) GetName() string {
-	return jd.Name
+	return jd.name
+}
+
+func (jd *JobDefinition[T]) Seal() {
+	if jd.sealed {
+		return
+	}
+	jd.sealed = true
+}
+
+func (jd *JobDefinition[T]) Sealed() bool {
+	return jd.sealed
 }
 
 // GetStep returns the stepDefinition by name
@@ -155,7 +173,7 @@ func (ji *JobInstance[T]) start(ctx context.Context) {
 	// construct job instance graph, with TopologySort ordering
 	orderedSteps := ji.Definition.stepsDag.TopologicalSort()
 	for _, stepDef := range orderedSteps {
-		if stepDef.GetName() == ji.Definition.Name {
+		if stepDef.GetName() == ji.Definition.GetName() {
 			continue
 		}
 		ji.steps[stepDef.GetName()] = stepDef.createStepInstance(ctx, ji)
