@@ -2,6 +2,8 @@ package asyncjob
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/Azure/go-asyncjob/graph"
 )
@@ -15,7 +17,7 @@ type JobDefinitionMeta interface {
 	Visualize() (string, error)
 
 	// not exposing for now.
-	addStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta)
+	addStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta) error
 	getRootStep() StepDefinitionMeta
 }
 
@@ -87,12 +89,20 @@ func (jd *JobDefinition[T]) GetStep(stepName string) (StepDefinitionMeta, bool) 
 }
 
 // AddStep adds a step to the job definition, with optional preceding steps
-func (jd *JobDefinition[T]) addStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta) {
+func (jd *JobDefinition[T]) addStep(step StepDefinitionMeta, precedingSteps ...StepDefinitionMeta) error {
 	jd.steps[step.GetName()] = step
 	jd.stepsDag.AddNode(step)
 	for _, precedingStep := range precedingSteps {
-		jd.stepsDag.Connect(precedingStep, step)
+		if err := jd.stepsDag.Connect(precedingStep, step); err != nil {
+			if errors.Is(err, graph.ErrConnectNotExistingNode) {
+				return ErrRefStepNotInJob.WithMessage(fmt.Sprintf("referenced step %s not found", precedingStep.GetName()))
+			}
+
+			return err
+		}
 	}
+
+	return nil
 }
 
 // Visualize the job definition in graphviz dot format

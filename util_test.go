@@ -18,7 +18,7 @@ var SqlSummaryAsyncJobDefinition *asyncjob.JobDefinitionWithResult[SqlSummaryJob
 
 func init() {
 	var err error
-	SqlSummaryAsyncJobDefinition, err = BuildJobWithResult(context.Background(), map[string]asyncjob.RetryPolicy{})
+	SqlSummaryAsyncJobDefinition, err = BuildJobWithResult(map[string]asyncjob.RetryPolicy{})
 	if err != nil {
 		panic(err)
 	}
@@ -108,53 +108,53 @@ func emailNotificationStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[interf
 	})
 }
 
-func BuildJob(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinition[SqlSummaryJobLib], error) {
+func BuildJob(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinition[SqlSummaryJobLib], error) {
 	job := asyncjob.NewJobDefinition[SqlSummaryJobLib]("sqlSummaryJob")
 
-	connTsk, err := asyncjob.AddStep(bCtx, job, "GetConnection", connectionStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	connTsk, err := asyncjob.AddStep(job, "GetConnection", connectionStepFunc, asyncjob.WithRetry(retryPolicies["GetConnection"]), asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step GetConnection: %w", err)
 	}
 
-	checkAuthTask, err := asyncjob.AddStep(bCtx, job, "CheckAuth", checkAuthStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	checkAuthTask, err := asyncjob.AddStep(job, "CheckAuth", checkAuthStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step CheckAuth: %w", err)
 	}
 
-	table1ClientTsk, err := asyncjob.StepAfter(bCtx, job, "GetTableClient1", connTsk, tableClient1StepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	table1ClientTsk, err := asyncjob.StepAfter(job, "GetTableClient1", connTsk, tableClient1StepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step GetTableClient1: %w", err)
 	}
 
-	qery1ResultTsk, err := asyncjob.StepAfter(bCtx, job, "QueryTable1", table1ClientTsk, queryTable1StepFunc, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	qery1ResultTsk, err := asyncjob.StepAfter(job, "QueryTable1", table1ClientTsk, queryTable1StepFunc, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step QueryTable1: %w", err)
 	}
 
-	table2ClientTsk, err := asyncjob.StepAfter(bCtx, job, "GetTableClient2", connTsk, tableClient2StepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	table2ClientTsk, err := asyncjob.StepAfter(job, "GetTableClient2", connTsk, tableClient2StepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step GetTableClient2: %w", err)
 	}
 
-	qery2ResultTsk, err := asyncjob.StepAfter(bCtx, job, "QueryTable2", table2ClientTsk, queryTable2StepFunc, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	qery2ResultTsk, err := asyncjob.StepAfter(job, "QueryTable2", table2ClientTsk, queryTable2StepFunc, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step QueryTable2: %w", err)
 	}
 
-	summaryTsk, err := asyncjob.StepAfterBoth(bCtx, job, "Summarize", qery1ResultTsk, qery2ResultTsk, summarizeQueryResultStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	summaryTsk, err := asyncjob.StepAfterBoth(job, "Summarize", qery1ResultTsk, qery2ResultTsk, summarizeQueryResultStepFunc, asyncjob.WithRetry(retryPolicies["Summarize"]), asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step Summarize: %w", err)
 	}
 
-	_, err = asyncjob.AddStep(bCtx, job, "EmailNotification", emailNotificationStepFunc, asyncjob.ExecuteAfter(summaryTsk), asyncjob.WithContextEnrichment(EnrichContext))
+	_, err = asyncjob.AddStep(job, "EmailNotification", emailNotificationStepFunc, asyncjob.ExecuteAfter(summaryTsk), asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step EmailNotification: %w", err)
 	}
 	return job, nil
 }
 
-func BuildJobWithResult(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinitionWithResult[SqlSummaryJobLib, SummarizedResult], error) {
-	job, err := BuildJob(bCtx, retryPolicies)
+func BuildJobWithResult(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinitionWithResult[SqlSummaryJobLib, SummarizedResult], error) {
+	job, err := BuildJob(retryPolicies)
 	if err != nil {
 		return nil, err
 	}

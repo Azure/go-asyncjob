@@ -10,13 +10,13 @@ import (
 )
 
 // AddStep adds a step to the job definition.
-func AddStep[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFuncCreator func(input *JT) asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	if j.Sealed() {
-		return nil, ErrAddStepInSealedJob
+func AddStep[JT, ST any](j *JobDefinition[JT], stepName string, stepFuncCreator func(input *JT) asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	if err := addStepPreCheck(j, stepName); err != nil {
+		return nil, err
 	}
 
 	stepD := newStepDefinition[ST](stepName, stepTypeTask, optionDecorators...)
-	precedingDefSteps, err := getDependsOnSteps(stepD, j)
+	precedingDefSteps, err := getDependsOnSteps(j, stepD.DependsOn())
 	if err != nil {
 		return nil, err
 	}
@@ -51,23 +51,20 @@ func AddStep[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName st
 		return stepInstance
 	}
 
-	j.addStep(stepD, precedingDefSteps...)
+	if err := j.addStep(stepD, precedingDefSteps...); err != nil {
+		return nil, err
+	}
 	return stepD, nil
 }
 
 // StepAfter add a step after a preceding step, also take input from that preceding step
-func StepAfter[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepAfterFuncCreator func(input *JT) asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	if j.Sealed() {
-		return nil, ErrAddStepInSealedJob
-	}
-
-	// check parentStepT is in this job
-	if get, ok := j.GetStep(parentStep.GetName()); !ok || get != parentStep {
-		return nil, fmt.Errorf("step [%s] not found in job", parentStep.GetName())
+func StepAfter[JT, PT, ST any](j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepAfterFuncCreator func(input *JT) asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	if err := addStepPreCheck(j, stepName); err != nil {
+		return nil, err
 	}
 
 	stepD := newStepDefinition[ST](stepName, stepTypeTask, append(optionDecorators, ExecuteAfter(parentStep))...)
-	precedingDefSteps, err := getDependsOnSteps(stepD, j)
+	precedingDefSteps, err := getDependsOnSteps(j, stepD.DependsOn())
 	if err != nil {
 		return nil, err
 	}
@@ -92,39 +89,33 @@ func StepAfter[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepN
 
 		parentStepInstance := getStrongTypedStepInstance(parentStep, ji)
 		stepInstance := newStepInstance[ST](stepD, ji)
+		// here ContinueWith may not invoke instrumentedStepAfterBoth at all, if parentStep1 or parentStep2 returns error.
 		stepInstance.task = asynctask.ContinueWith(ctx, parentStepInstance.task, instrumentedStepAfter(stepInstance, precedingTasks, stepFuncWithPanicHandling))
 		ji.addStepInstance(stepInstance, precedingInstances...)
 		return stepInstance
 	}
 
-	j.addStep(stepD, precedingDefSteps...)
+	if err := j.addStep(stepD, precedingDefSteps...); err != nil {
+		return nil, err
+	}
 	return stepD, nil
 }
 
 // StepAfterBoth add a step after both preceding steps, also take input from both preceding steps
-func StepAfterBoth[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepAfterBothFuncCreator func(input *JT) asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	if j.Sealed() {
-		return nil, ErrAddStepInSealedJob
-	}
-
-	// check parentStepT is in this job
-	if get, ok := j.GetStep(parentStep1.GetName()); !ok || get != parentStep1 {
-		return nil, fmt.Errorf("step [%s] not found in job", parentStep1.GetName())
-	}
-	if get, ok := j.GetStep(parentStep2.GetName()); !ok || get != parentStep2 {
-		return nil, fmt.Errorf("step [%s] not found in job", parentStep2.GetName())
-	}
-
-	stepD := newStepDefinition[ST](stepName, stepTypeTask, append(optionDecorators, ExecuteAfter(parentStep1), ExecuteAfter(parentStep2))...)
-	precedingDefSteps, err := getDependsOnSteps(stepD, j)
-	if err != nil {
+func StepAfterBoth[JT, PT1, PT2, ST any](j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepAfterBothFuncCreator func(input *JT) asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	if err := addStepPreCheck(j, stepName); err != nil {
 		return nil, err
 	}
 
-	// if a step have no preceding tasks, link it to our rootJob as preceding task, so it won't start yet.
-	if len(precedingDefSteps) == 0 {
-		precedingDefSteps = append(precedingDefSteps, j.getRootStep())
-		stepD.executionOptions.DependOn = append(stepD.executionOptions.DependOn, j.getRootStep().GetName())
+	// compiler not allow me to compare parentStep1 and parentStep2 directly with different genericType
+	if parentStep1.GetName() == parentStep2.GetName() {
+		return nil, ErrDuplicateInputParentStep.WithMessage(MsgDuplicateInputParentStep)
+	}
+
+	stepD := newStepDefinition[ST](stepName, stepTypeTask, append(optionDecorators, ExecuteAfter(parentStep1), ExecuteAfter(parentStep2))...)
+	precedingDefSteps, err := getDependsOnSteps(j, stepD.DependsOn())
+	if err != nil {
+		return nil, err
 	}
 
 	stepD.instanceCreator = func(ctx context.Context, ji JobInstanceMeta) StepInstanceMeta {
@@ -147,39 +138,40 @@ func StepAfterBoth[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[
 		parentStepInstance1 := getStrongTypedStepInstance(parentStep1, ji)
 		parentStepInstance2 := getStrongTypedStepInstance(parentStep2, ji)
 		stepInstance := newStepInstance[ST](stepD, ji)
+		// here AfterBoth may not invoke instrumentedStepAfterBoth at all, if parentStep1 or parentStep2 returns error.
 		stepInstance.task = asynctask.AfterBoth(ctx, parentStepInstance1.task, parentStepInstance2.task, instrumentedStepAfterBoth(stepInstance, precedingTasks, stepFuncWithPanicHandling))
 		ji.addStepInstance(stepInstance, precedingInstances...)
 		return stepInstance
 	}
 
-	j.addStep(stepD, precedingDefSteps...)
+	if err := j.addStep(stepD, precedingDefSteps...); err != nil {
+		return nil, err
+	}
 	return stepD, nil
 }
 
 // AddStepWithStaticFunc is same as AddStep, but the stepFunc passed in shouldn't have receiver. (or you get shared state between job instances)
-func AddStepWithStaticFunc[JT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, stepFunc asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	return AddStep(bCtx, j, stepName, func(j *JT) asynctask.AsyncFunc[ST] { return stepFunc }, optionDecorators...)
+func AddStepWithStaticFunc[JT, ST any](j *JobDefinition[JT], stepName string, stepFunc asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	return AddStep(j, stepName, func(j *JT) asynctask.AsyncFunc[ST] { return stepFunc }, optionDecorators...)
 }
 
 // StepAfterWithStaticFunc is same as StepAfter, but the stepFunc passed in shouldn't have receiver. (or you get shared state between job instances)
-func StepAfterWithStaticFunc[JT, PT, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepFunc asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	return StepAfter(bCtx, j, stepName, parentStep, func(j *JT) asynctask.ContinueFunc[PT, ST] { return stepFunc }, optionDecorators...)
+func StepAfterWithStaticFunc[JT, PT, ST any](j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepFunc asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	return StepAfter(j, stepName, parentStep, func(j *JT) asynctask.ContinueFunc[PT, ST] { return stepFunc }, optionDecorators...)
 }
 
 // StepAfterBothWithStaticFunc is same as StepAfterBoth, but the stepFunc passed in shouldn't have receiver. (or you get shared state between job instances)
-func StepAfterBothWithStaticFunc[JT, PT1, PT2, ST any](bCtx context.Context, j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepFunc asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	return StepAfterBoth(bCtx, j, stepName, parentStep1, parentStep2, func(j *JT) asynctask.AfterBothFunc[PT1, PT2, ST] { return stepFunc }, optionDecorators...)
+func StepAfterBothWithStaticFunc[JT, PT1, PT2, ST any](j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepFunc asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+	return StepAfterBoth(j, stepName, parentStep1, parentStep2, func(j *JT) asynctask.AfterBothFunc[PT1, PT2, ST] { return stepFunc }, optionDecorators...)
 }
 
 func instrumentedAddStep[T any](stepInstance *StepInstance[T], precedingTasks []asynctask.Waitable, stepFunc func(ctx context.Context) (*T, error)) func(ctx context.Context) (*T, error) {
 	return func(ctx context.Context) (*T, error) {
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
-			/* this only work on ExecuteAfter from input, asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
-			   we need to be consistent on how to set state of dependent step.
-			step.executionData.StartTime = time.Now()
-			step.state = StepStateFailed
-			step.executionData.Duration = 0 */
-			return nil, newStepError(ErrPrecedentStepFailure, stepInstance, err)
+			/* this only work on ExecuteAfter (have precedent step, but not taking input from it)
+			   asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
+			   we need to be consistent on before we do any state change or error handling. */
+			return nil, err
 		}
 
 		stepInstance.executionData.StartTime = time.Now()
@@ -210,12 +202,10 @@ func instrumentedAddStep[T any](stepInstance *StepInstance[T], precedingTasks []
 func instrumentedStepAfter[T, S any](stepInstance *StepInstance[S], precedingTasks []asynctask.Waitable, stepFunc func(ctx context.Context, t *T) (*S, error)) func(ctx context.Context, t *T) (*S, error) {
 	return func(ctx context.Context, t *T) (*S, error) {
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
-			/* this only work on ExecuteAfter from input, asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
-			   we need to be consistent on how to set state of dependent step.
-			step.executionData.StartTime = time.Now()
-			step.state = StepStateFailed
-			step.executionData.Duration = 0 */
-			return nil, newStepError(ErrPrecedentStepFailure, stepInstance, err)
+			/* this only work on ExecuteAfter (have precedent step, but not taking input from it)
+			   asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
+			   we need to be consistent on before we do any state change or error handling. */
+			return nil, err
 		}
 
 		stepInstance.executionData.StartTime = time.Now()
@@ -247,12 +237,10 @@ func instrumentedStepAfterBoth[T, S, R any](stepInstance *StepInstance[R], prece
 	return func(ctx context.Context, t *T, s *S) (*R, error) {
 
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
-			/* this only work on ExecuteAfter from input, asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
-			   we need to be consistent on how to set state of dependent step.
-			step.executionData.StartTime = time.Now()
-			step.state = StepStateFailed
-			step.executionData.Duration = 0 */
-			return nil, newStepError(ErrPrecedentStepFailure, stepInstance, err)
+			/* this only work on ExecuteAfter (have precedent step, but not taking input from it)
+			   asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
+			   we need to be consistent on before we do any state change or error handling. */
+			return nil, err
 		}
 
 		stepInstance.executionData.StartTime = time.Now()
@@ -280,13 +268,25 @@ func instrumentedStepAfterBoth[T, S, R any](stepInstance *StepInstance[R], prece
 	}
 }
 
-func getDependsOnSteps(step StepDefinitionMeta, j JobDefinitionMeta) ([]StepDefinitionMeta, error) {
+func addStepPreCheck(j JobDefinitionMeta, stepName string) error {
+	if j.Sealed() {
+		return ErrAddStepInSealedJob.WithMessage(fmt.Sprintf(MsgAddStepInSealedJob, stepName))
+	}
+
+	if _, ok := j.GetStep(stepName); ok {
+		return ErrAddExistingStep.WithMessage(fmt.Sprintf(MsgAddExistingStep, stepName))
+	}
+
+	return nil
+}
+
+func getDependsOnSteps(j JobDefinitionMeta, dependsOnSteps []string) ([]StepDefinitionMeta, error) {
 	var precedingDefSteps []StepDefinitionMeta
-	for _, depStepName := range step.DependsOn() {
+	for _, depStepName := range dependsOnSteps {
 		if depStep, ok := j.GetStep(depStepName); ok {
 			precedingDefSteps = append(precedingDefSteps, depStep)
 		} else {
-			return nil, fmt.Errorf("step [%s] not found", depStepName)
+			return nil, ErrRefStepNotInJob.WithMessage(fmt.Sprintf(MsgRefStepNotInJob, depStepName))
 		}
 	}
 
@@ -301,7 +301,7 @@ func getDependsOnStepInstances(stepD StepDefinitionMeta, ji JobInstanceMeta) ([]
 			precedingInstances = append(precedingInstances, depStep)
 			precedingTasks = append(precedingTasks, depStep.Waitable())
 		} else {
-			return nil, nil, fmt.Errorf("runtime step [%s] not found", depStepName)
+			return nil, nil, ErrRuntimeStepNotFound.WithMessage(fmt.Sprintf(MsgRuntimeStepNotFound, depStepName))
 		}
 	}
 

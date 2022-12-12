@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Azure/go-asyncjob"
-	"github.com/Azure/go-asynctask"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -130,7 +129,11 @@ func TestJobPanic(t *testing.T) {
 
 func TestJobStepRetry(t *testing.T) {
 	t.Parallel()
-	jd, err := BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{"QueryTable1": newLinearRetryPolicy(time.Millisecond*3, 3)})
+	jd, err := BuildJob(map[string]asyncjob.RetryPolicy{
+		"GetConnection": newLinearRetryPolicy(time.Millisecond*3, 3),
+		"QueryTable1":   newLinearRetryPolicy(time.Millisecond*3, 3),
+		"Summarize":     newLinearRetryPolicy(time.Millisecond*3, 3),
+	})
 	assert.NoError(t, err)
 
 	invalidStep := &asyncjob.StepDefinition[string]{}
@@ -141,7 +144,8 @@ func TestJobStepRetry(t *testing.T) {
 	assert.False(t, jd.Sealed())
 
 	ctx := context.WithValue(context.Background(), testLoggingContextKey, t)
-	ctx = context.WithValue(ctx, "error-injection.server1.table1.query1", fmt.Errorf("query exeeded memory limit"))
+
+	// gain code coverage on retry policy in StepAfter
 	jobInstance := jd.Start(ctx, &SqlSummaryJobLib{
 		Params: &SqlSummaryJobParameters{
 			ServerName: "server1",
@@ -165,50 +169,48 @@ func TestJobStepRetry(t *testing.T) {
 	errors.As(err, &jobErr)
 	assert.Equal(t, jobErr.Code, asyncjob.ErrStepFailed)
 	assert.Equal(t, "QueryTable1", jobErr.StepInstance.GetName())
-
 	exeData := jobErr.StepInstance.ExecutionData()
 	assert.Equal(t, exeData.Retried.Count, 3)
 
-	renderGraph(t, jobInstance)
-}
-
-func TestDefinitionBuilder(t *testing.T) {
-	t.Parallel()
-
-	renderGraph(t, SqlSummaryAsyncJobDefinition)
-
-	SqlSummaryAsyncJobDefinition.Seal()
-
-	_, err := asyncjob.AddStep(context.Background(), SqlSummaryAsyncJobDefinition.JobDefinition, "EmailNotification2", emailNotificationStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	// gain code coverage on retry policy in AddStep
+	jobInstance1 := jd.Start(ctx, &SqlSummaryJobLib{
+		Params: &SqlSummaryJobParameters{
+			ServerName: "server1",
+			Table1:     "table1",
+			Query1:     "query1",
+			Table2:     "table2",
+			Query2:     "query2",
+			ErrorInjection: map[string]func() error{
+				"GetConnection": func() error { return fmt.Errorf("dial 1.2.3.4 timedout") },
+			},
+		},
+	})
+	err = jobInstance1.Wait(context.Background())
 	assert.Error(t, err)
+	jobErr = &asyncjob.JobError{}
+	errors.As(err, &jobErr)
+	assert.Equal(t, jobErr.Code, asyncjob.ErrStepFailed)
+	assert.Equal(t, "GetConnection", jobErr.StepInstance.GetName())
 
-	qery2ResultTskMeta, ok := SqlSummaryAsyncJobDefinition.GetStep("QueryTable2")
-	assert.True(t, ok)
-	query2Task, ok := qery2ResultTskMeta.(*asyncjob.StepDefinition[SqlQueryResult])
-	assert.True(t, ok)
-
-	dummyStepFunc := func(sql *SqlSummaryJobLib) asynctask.ContinueFunc[SqlQueryResult, any] {
-		return func(ctx context.Context, result *SqlQueryResult) (*any, error) {
-			return nil, nil
-		}
-	}
-
-	_, err = asyncjob.StepAfter(context.Background(), SqlSummaryAsyncJobDefinition.JobDefinition, "dummyStep", query2Task, dummyStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	// gain code coverage on retry policy in AfterBoth
+	jobInstance2 := jd.Start(ctx, &SqlSummaryJobLib{
+		Params: &SqlSummaryJobParameters{
+			ServerName: "server1",
+			Table1:     "table1",
+			Query1:     "query1",
+			Table2:     "table2",
+			Query2:     "query2",
+			ErrorInjection: map[string]func() error{
+				"SummarizeQueryResult": func() error { return fmt.Errorf("result1 and result2 having different schema version, cannot merge.") },
+			},
+		},
+	})
+	err = jobInstance2.Wait(context.Background())
 	assert.Error(t, err)
-
-	qery1ResultTskMeta, ok := SqlSummaryAsyncJobDefinition.GetStep("QueryTable1")
-	assert.True(t, ok)
-	query1Task, ok := qery1ResultTskMeta.(*asyncjob.StepDefinition[SqlQueryResult])
-	assert.True(t, ok)
-
-	advancedSummaryStepFunc := func(sql *SqlSummaryJobLib) asynctask.AfterBothFunc[SqlQueryResult, SqlQueryResult, any] {
-		return func(ctx context.Context, result1 *SqlQueryResult, result2 *SqlQueryResult) (*any, error) {
-			return nil, nil
-		}
-	}
-
-	_, err = asyncjob.StepAfterBoth(context.Background(), SqlSummaryAsyncJobDefinition.JobDefinition, "dummyStep", query1Task, query2Task, advancedSummaryStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
-	assert.Error(t, err)
+	jobErr = &asyncjob.JobError{}
+	errors.As(err, &jobErr)
+	assert.Equal(t, jobErr.Code, asyncjob.ErrStepFailed)
+	assert.Equal(t, "Summarize", jobErr.StepInstance.GetName())
 }
 
 func renderGraph(t *testing.T, jb GraphRender) {
