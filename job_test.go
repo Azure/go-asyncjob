@@ -98,6 +98,9 @@ func TestJobStepRetry(t *testing.T) {
 	jd, err := BuildJob(context.Background(), map[string]asyncjob.RetryPolicy{"QueryTable1": newLinearRetryPolicy(time.Millisecond*3, 3)})
 	assert.NoError(t, err)
 
+	// newly created job definition should not be sealed
+	assert.False(t, jd.Sealed())
+
 	ctx := context.WithValue(context.Background(), testLoggingContextKey, t)
 	ctx = context.WithValue(ctx, "error-injection.server1.table1.query1", fmt.Errorf("query exeeded memory limit"))
 	jobInstance := jd.Start(ctx, &SqlSummaryJobLib{
@@ -113,6 +116,9 @@ func TestJobStepRetry(t *testing.T) {
 		},
 	})
 
+	// once Start() is triggered, job definition should be sealed
+	assert.True(t, jd.Sealed())
+
 	err = jobInstance.Wait(context.Background())
 	assert.Error(t, err)
 
@@ -125,6 +131,17 @@ func TestJobStepRetry(t *testing.T) {
 	assert.Equal(t, exeData.Retried.Count, 3)
 
 	renderGraph(t, jobInstance)
+}
+
+func TestDefinitionGraph(t *testing.T) {
+	t.Parallel()
+
+	renderGraph(t, SqlSummaryAsyncJobDefinition)
+
+	SqlSummaryAsyncJobDefinition.Seal()
+
+	_, err := asyncjob.AddStep(context.Background(), SqlSummaryAsyncJobDefinition.JobDefinition, "EmailNotification2", emailNotificationStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	assert.Error(t, err)
 }
 
 func renderGraph(t *testing.T, jb GraphRender) {
