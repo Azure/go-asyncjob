@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Azure/go-asyncjob"
+	"github.com/Azure/go-asynctask"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -171,7 +172,7 @@ func TestJobStepRetry(t *testing.T) {
 	renderGraph(t, jobInstance)
 }
 
-func TestDefinitionGraph(t *testing.T) {
+func TestDefinitionBuilder(t *testing.T) {
 	t.Parallel()
 
 	renderGraph(t, SqlSummaryAsyncJobDefinition)
@@ -179,6 +180,34 @@ func TestDefinitionGraph(t *testing.T) {
 	SqlSummaryAsyncJobDefinition.Seal()
 
 	_, err := asyncjob.AddStep(context.Background(), SqlSummaryAsyncJobDefinition.JobDefinition, "EmailNotification2", emailNotificationStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	assert.Error(t, err)
+
+	qery2ResultTskMeta, ok := SqlSummaryAsyncJobDefinition.GetStep("QueryTable2")
+	assert.True(t, ok)
+	query2Task, ok := qery2ResultTskMeta.(*asyncjob.StepDefinition[SqlQueryResult])
+	assert.True(t, ok)
+
+	dummyStepFunc := func(sql *SqlSummaryJobLib) asynctask.ContinueFunc[SqlQueryResult, any] {
+		return func(ctx context.Context, result *SqlQueryResult) (*any, error) {
+			return nil, nil
+		}
+	}
+
+	_, err = asyncjob.StepAfter(context.Background(), SqlSummaryAsyncJobDefinition.JobDefinition, "dummyStep", query2Task, dummyStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	assert.Error(t, err)
+
+	qery1ResultTskMeta, ok := SqlSummaryAsyncJobDefinition.GetStep("QueryTable1")
+	assert.True(t, ok)
+	query1Task, ok := qery1ResultTskMeta.(*asyncjob.StepDefinition[SqlQueryResult])
+	assert.True(t, ok)
+
+	advancedSummaryStepFunc := func(sql *SqlSummaryJobLib) asynctask.AfterBothFunc[SqlQueryResult, SqlQueryResult, any] {
+		return func(ctx context.Context, result1 *SqlQueryResult, result2 *SqlQueryResult) (*any, error) {
+			return nil, nil
+		}
+	}
+
+	_, err = asyncjob.StepAfterBoth(context.Background(), SqlSummaryAsyncJobDefinition.JobDefinition, "dummyStep", query1Task, query2Task, advancedSummaryStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	assert.Error(t, err)
 }
 
