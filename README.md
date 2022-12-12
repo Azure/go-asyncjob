@@ -30,30 +30,71 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 
 ### Build and run a asyncjob
 ```golang
-	job := NewJob("sqlSummaryJob")
-	jobLib := &SqlSummaryJobLib{}
 
-	# connection
-	connTask, _ := AddStep(bCtx, job, "getConnection", jobLib.GetConnection, []string{})
+// SqlSummaryAsyncJobDefinition is the job definition for the SqlSummaryJobLib
+//   JobDefinition fit perfectly in init() function
+var SqlSummaryAsyncJobDefinition *asyncjob.JobDefinitionWithResult[SqlSummaryJobLib, SummarizedResult]
 
-	# query1
-	table1ParamTask := InputParam(job, "param_table1", "table1")
-	table1ClientTask, _ := StepAfterBoth(bCtx, job, "getTableClient1", connTask, table1ParamTask, jobLib.GetTableClient)
-	query1ParamTask := InputParam(job, "param_query1", "select x,y,z from table1")
-	qery1ResultTask, _ := StepAfterBoth(bCtx, job, "queryTable1", table1ClientTask, query1ParamTask, jobLib.ExecuteQuery)
+func init() {
+	var err error
+	SqlSummaryAsyncJobDefinition, err = BuildJobWithResult(map[string]asyncjob.RetryPolicy{})
+	if err != nil {
+		panic(err)
+	}
 
-	# query2
-	table2ParamTask := InputParam(job, "param_table2", "table2")
-	table2ClientTask, _ := StepAfterBoth(bCtx, job, "getTableClient2", connTask, table2ParamTask, jobLib.GetTableClient)
-	query2ParamTask := InputParam(job, "param_query2", &sjb.Query2)
-	qery2ResultTask, _ := StepAfterBoth(bCtx, job, "queryTable2", table2ClientTask, query2ParamTask, jobLib.ExecuteQuery)
+	SqlSummaryAsyncJobDefinition.Seal()
+}
 
-	# summarize
-	StepAfterBoth(bCtx, job, "summarize", qery1ResultTask, qery2ResultTask, jobLib.SummarizeQueryResult)
+func BuildJob(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinition[SqlSummaryJobLib], error) {
+	job := asyncjob.NewJobDefinition[SqlSummaryJobLib]("sqlSummaryJob")
 
-	# execute job
-	job.Start(context.Background())
-	job.Wait(context.WithTimeout(context.Background(), 10*time.Second))
+	connTsk, err := asyncjob.AddStep(job, "GetConnection", connectionStepFunc, asyncjob.WithRetry(retryPolicies["GetConnection"]), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step GetConnection: %w", err)
+	}
+
+	checkAuthTask, err := asyncjob.AddStep(job, "CheckAuth", checkAuthStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step CheckAuth: %w", err)
+	}
+
+	table1ClientTsk, err := asyncjob.StepAfter(job, "GetTableClient1", connTsk, tableClient1StepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step GetTableClient1: %w", err)
+	}
+
+	qery1ResultTsk, err := asyncjob.StepAfter(job, "QueryTable1", table1ClientTsk, queryTable1StepFunc, asyncjob.WithRetry(retryPolicies["QueryTable1"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step QueryTable1: %w", err)
+	}
+
+	table2ClientTsk, err := asyncjob.StepAfter(job, "GetTableClient2", connTsk, tableClient2StepFunc, asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step GetTableClient2: %w", err)
+	}
+
+	qery2ResultTsk, err := asyncjob.StepAfter(job, "QueryTable2", table2ClientTsk, queryTable2StepFunc, asyncjob.WithRetry(retryPolicies["QueryTable2"]), asyncjob.ExecuteAfter(checkAuthTask), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step QueryTable2: %w", err)
+	}
+
+	summaryTsk, err := asyncjob.StepAfterBoth(job, "Summarize", qery1ResultTsk, qery2ResultTsk, summarizeQueryResultStepFunc, asyncjob.WithRetry(retryPolicies["Summarize"]), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step Summarize: %w", err)
+	}
+
+	_, err = asyncjob.AddStep(job, "EmailNotification", emailNotificationStepFunc, asyncjob.ExecuteAfter(summaryTsk), asyncjob.WithContextEnrichment(EnrichContext))
+	if err != nil {
+		return nil, fmt.Errorf("error adding step EmailNotification: %w", err)
+	}
+	return job, nil
+}
+	// execute job
+	jobInstance1 := SqlSummaryAsyncJobDefinition.Start(ctx, &SqlSummaryJobLib{...})
+	jobInstance2 := SqlSummaryAsyncJobDefinition.Start(ctx, &SqlSummaryJobLib{...})
+
+	jobInstance1.Wait(context.WithTimeout(context.Background(), 10*time.Second))
+	jobInstance2.Wait(context.WithTimeout(context.Background(), 10*time.Second))
 ```
 
 ### visualize of a job
@@ -68,42 +109,27 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 ```
 digraph {
 	newrank = "true"
-		param_table1 [label="table1" shape=hexagon style=filled tooltip="Type: param\nName: table1\nState: completed\nStartAt: 2022-11-03T00:56:30.006196-07:00\nDuration: 12.657µs" fillcolor=green] 
-		param_query1 [label="query1" shape=hexagon style=filled tooltip="Type: param\nName: query1\nState: completed\nStartAt: 2022-11-03T00:56:30.0062-07:00\nDuration: 17.013µs" fillcolor=green] 
-		root_job [label="job" shape=triangle style=filled tooltip="Type: root\nName: job\nState: completed\nStartAt: 2022-11-03T00:56:30.006183-07:00\nDuration: 3.695µs" fillcolor=green] 
-		param_query2 [label="query2" shape=hexagon style=filled tooltip="Type: param\nName: query2\nState: completed\nStartAt: 2022-11-03T00:56:30.006197-07:00\nDuration: 13.781µs" fillcolor=green] 
-		task_getTableClient1 [label="getTableClient1" shape=box style=filled tooltip="Type: task\nName: getTableClient1\nState: completed\nStartAt: 2022-11-03T00:56:30.006304-07:00\nDuration: 34.652µs" fillcolor=green] 
-		task_queryTable1 [label="queryTable1" shape=box style=filled tooltip="Type: task\nName: queryTable1\nState: completed\nStartAt: 2022-11-03T00:56:30.006349-07:00\nDuration: 3.217443247s" fillcolor=green] 
-		param_table2 [label="table2" shape=hexagon style=filled tooltip="Type: param\nName: table2\nState: completed\nStartAt: 2022-11-03T00:56:30.006199-07:00\nDuration: 15.632µs" fillcolor=green] 
-		task_getTableClient2 [label="getTableClient2" shape=box style=filled tooltip="Type: task\nName: getTableClient2\nState: completed\nStartAt: 2022-11-03T00:56:30.00631-07:00\nDuration: 51.872µs" fillcolor=green] 
-		task_queryTable2 [label="queryTable2" shape=box style=filled tooltip="Type: task\nName: queryTable2\nState: completed\nStartAt: 2022-11-03T00:56:30.006377-07:00\nDuration: 67.814µs" fillcolor=green] 
-		task_emailNotification [label="emailNotification" shape=box style=filled tooltip="Type: task\nName: emailNotification\nState: completed\nStartAt: 2022-11-03T00:56:33.223952-07:00\nDuration: 3.92µs" fillcolor=green] 
-		param_serverName [label="serverName" shape=hexagon style=filled tooltip="Type: param\nName: serverName\nState: completed\nStartAt: 2022-11-03T00:56:30.006198-07:00\nDuration: 14.638µs" fillcolor=green] 
-		task_getConnection [label="getConnection" shape=box style=filled tooltip="Type: task\nName: getConnection\nState: completed\nStartAt: 2022-11-03T00:56:30.006231-07:00\nDuration: 62.234µs" fillcolor=green] 
-		task_checkAuth [label="checkAuth" shape=box style=filled tooltip="Type: task\nName: checkAuth\nState: completed\nStartAt: 2022-11-03T00:56:30.006212-07:00\nDuration: 650ns" fillcolor=green] 
-		task_summarize [label="summarize" shape=box style=filled tooltip="Type: task\nName: summarize\nState: completed\nStartAt: 2022-11-03T00:56:33.22392-07:00\nDuration: 4.325µs" fillcolor=green] 
-        
-		param_table1 -> task_getTableClient1 [style=bold tooltip="Time: 2022-11-03T00:56:30.006304-07:00" color=green] 
-		param_query1 -> task_queryTable1 [style=bold tooltip="Time: 2022-11-03T00:56:30.006349-07:00" color=green] 
-		param_table2 -> task_getTableClient2 [style=bold tooltip="Time: 2022-11-03T00:56:30.00631-07:00" color=green] 
-		task_getTableClient2 -> task_queryTable2 [style=bold tooltip="Time: 2022-11-03T00:56:30.006377-07:00" color=green] 
-		param_query2 -> task_queryTable2 [style=bold tooltip="Time: 2022-11-03T00:56:30.006377-07:00" color=green] 
-		task_queryTable2 -> task_summarize [style=bold tooltip="Time: 2022-11-03T00:56:33.22392-07:00" color=green] 
-		root_job -> param_serverName [style=bold tooltip="Time: 2022-11-03T00:56:30.006198-07:00" color=green] 
-		root_job -> task_checkAuth [style=bold tooltip="Time: 2022-11-03T00:56:30.006212-07:00" color=green] 
-		root_job -> param_table1 [style=bold tooltip="Time: 2022-11-03T00:56:30.006196-07:00" color=green] 
-		root_job -> param_query1 [style=bold tooltip="Time: 2022-11-03T00:56:30.0062-07:00" color=green] 
-		root_job -> param_table2 [style=bold tooltip="Time: 2022-11-03T00:56:30.006199-07:00" color=green] 
-		root_job -> param_query2 [style=bold tooltip="Time: 2022-11-03T00:56:30.006197-07:00" color=green] 
-		param_serverName -> task_getConnection [style=bold tooltip="Time: 2022-11-03T00:56:30.006231-07:00" color=green] 
-		task_getTableClient1 -> task_queryTable1 [style=bold tooltip="Time: 2022-11-03T00:56:30.006349-07:00" color=green] 
-		task_queryTable1 -> task_summarize [style=bold tooltip="Time: 2022-11-03T00:56:33.22392-07:00" color=green] 
-		task_summarize -> task_emailNotification [style=bold tooltip="Time: 2022-11-03T00:56:33.223952-07:00" color=green] 
-		task_getConnection -> task_getTableClient1 [style=bold tooltip="Time: 2022-11-03T00:56:30.006304-07:00" color=green] 
-		task_getConnection -> task_getTableClient2 [style=bold tooltip="Time: 2022-11-03T00:56:30.00631-07:00" color=green] 
-		task_checkAuth -> task_queryTable1 [style=bold tooltip="Time: 2022-11-03T00:56:30.006349-07:00" color=green] 
-		task_checkAuth -> task_queryTable2 [style=bold tooltip="Time: 2022-11-03T00:56:30.006377-07:00" color=green] 
+		"QueryTable2" [label="QueryTable2" shape=hexagon style=filled tooltip="State: completed\nStartAt: 2022-12-12T12:00:32.254054-08:00\nDuration: 13.207µs" fillcolor=green] 
+		"QueryTable1" [label="QueryTable1" shape=hexagon style=filled tooltip="State: completed\nStartAt: 2022-12-12T12:00:32.254098-08:00\nDuration: 11.394µs" fillcolor=green] 
+		"EmailNotification" [label="EmailNotification" shape=hexagon style=filled tooltip="State: completed\nStartAt: 2022-12-12T12:00:32.254143-08:00\nDuration: 11.757µs" fillcolor=green] 
+		"sqlSummaryJob" [label="sqlSummaryJob" shape=triangle style=filled tooltip="State: completed\nStartAt: 0001-01-01T00:00:00Z\nDuration: 0s" fillcolor=green] 
+		"GetConnection" [label="GetConnection" shape=hexagon style=filled tooltip="State: completed\nStartAt: 2022-12-12T12:00:32.253844-08:00\nDuration: 154.825µs" fillcolor=green] 
+		"GetTableClient2" [label="GetTableClient2" shape=hexagon style=filled tooltip="State: completed\nStartAt: 2022-12-12T12:00:32.254017-08:00\nDuration: 25.793µs" fillcolor=green] 
+		"GetTableClient1" [label="GetTableClient1" shape=hexagon style=filled tooltip="State: completed\nStartAt: 2022-12-12T12:00:32.254076-08:00\nDuration: 12.459µs" fillcolor=green] 
+		"Summarize" [label="Summarize" shape=hexagon style=filled tooltip="State: completed\nStartAt: 2022-12-12T12:00:32.254121-08:00\nDuration: 7.88µs" fillcolor=green] 
+		"CheckAuth" [label="CheckAuth" shape=hexagon style=filled tooltip="State: completed\nStartAt: 2022-12-12T12:00:32.253818-08:00\nDuration: 18.52µs" fillcolor=green] 
 
+		"CheckAuth" -> "QueryTable2" [style=bold tooltip="Time: 2022-12-12T12:00:32.254054-08:00" color=green] 
+		"CheckAuth" -> "QueryTable1" [style=bold tooltip="Time: 2022-12-12T12:00:32.254098-08:00" color=green] 
+		"GetTableClient2" -> "QueryTable2" [style=bold tooltip="Time: 2022-12-12T12:00:32.254054-08:00" color=green] 
+		"GetTableClient1" -> "QueryTable1" [style=bold tooltip="Time: 2022-12-12T12:00:32.254098-08:00" color=green] 
+		"QueryTable1" -> "Summarize" [style=bold tooltip="Time: 2022-12-12T12:00:32.254121-08:00" color=green] 
+		"QueryTable2" -> "Summarize" [style=bold tooltip="Time: 2022-12-12T12:00:32.254121-08:00" color=green] 
+		"Summarize" -> "EmailNotification" [style=bold tooltip="Time: 2022-12-12T12:00:32.254143-08:00" color=green] 
+		"sqlSummaryJob" -> "CheckAuth" [style=bold tooltip="Time: 2022-12-12T12:00:32.253818-08:00" color=green] 
+		"sqlSummaryJob" -> "GetConnection" [style=bold tooltip="Time: 2022-12-12T12:00:32.253844-08:00" color=green] 
+		"GetConnection" -> "GetTableClient2" [style=bold tooltip="Time: 2022-12-12T12:00:32.254017-08:00" color=green] 
+		"GetConnection" -> "GetTableClient1" [style=bold tooltip="Time: 2022-12-12T12:00:32.254076-08:00" color=green] 
 }
 ```
 

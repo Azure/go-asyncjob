@@ -1,309 +1,183 @@
-<svg width="936" height="888" viewBox="0 0 702 666" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-<g id="graph0" class="graph" transform="translate(79.29000854492188,573.8000030517578) scale(1)">
-<polygon fill="white" stroke="transparent" points="-4,4 -4,-485.6 547.42,-485.6 547.42,4 -4,4"/>
-<!-- param_table1 -->
+<svg width="936" height="847" viewBox="0 0 702 635.25" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="translate(121.96499633789062, 486.4250183105469)">
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-413.6 515.59,-413.6 515.59,4 -4,4"/>
+<!-- QueryTable2 -->
 <g id="node1" class="node">
-<title>param_table1</title>
-<g id="a_node1"><a xlink:title="Type: param&#10;Name: table1&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006196-07:00&#10;Duration: 12.657µs">
-<polygon fill="green" stroke="black" points="185.69,-306 165.7,-324 125.72,-324 105.73,-306 125.72,-288 165.7,-288 185.69,-306"/>
-<text text-anchor="middle" x="145.71" y="-301.8" font-family="Times,serif" font-size="14.00">table1</text>
+<title style="">QueryTable2</title>
+<g id="a_node1"><a xlink:title="State: completed&#10;StartAt: 2022-12-12T12:00:32.254054-08:00&#10;Duration: 13.207µs" style="">
+<polygon fill="green" stroke="black" points="219.17,-162 183.35,-180 111.71,-180 75.89,-162 111.71,-144 183.35,-144 219.17,-162" style=""/>
+<text text-anchor="middle" x="147.53" y="-157.8" font-family="Times,serif" font-size="14.00" style="">QueryTable2</text>
 </a>
 </g>
 </g>
-<!-- task_getTableClient1 -->
-<g id="node5" class="node">
-<title>task_getTableClient1</title>
-<g id="a_node5"><a xlink:title="Type: task&#10;Name: getTableClient1&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006304-07:00&#10;Duration: 34.652µs">
-<polygon fill="green" stroke="black" points="232.9,-252 126.51,-252 126.51,-216 232.9,-216 232.9,-252"/>
-<text text-anchor="middle" x="179.71" y="-229.8" font-family="Times,serif" font-size="14.00">getTableClient1</text>
-</a>
-</g>
-</g>
-<!-- param_table1&#45;&gt;task_getTableClient1 -->
-<g id="edge1" class="edge">
-<title>param_table1-&gt;task_getTableClient1</title>
-<g id="a_edge1"><a xlink:title="Time: 2022-11-03T00:56:30.006304-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M154.11,-287.7C157.98,-279.73 162.66,-270.1 166.95,-261.26"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="170.18,-262.63 171.4,-252.1 163.88,-259.57 170.18,-262.63"/>
-</a>
-</g>
-</g>
-<!-- param_query1 -->
-<g id="node2" class="node">
-<title>param_query1</title>
-<g id="a_node2"><a xlink:title="Type: param&#10;Name: query1&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.0062-07:00&#10;Duration: 17.013µs">
-<polygon fill="green" stroke="black" points="87.63,-306 65.67,-324 21.75,-324 -0.21,-306 21.75,-288 65.67,-288 87.63,-306"/>
-<text text-anchor="middle" x="43.71" y="-301.8" font-family="Times,serif" font-size="14.00">query1</text>
-</a>
-</g>
-</g>
-<!-- task_queryTable1 -->
-<g id="node6" class="node">
-<title>task_queryTable1</title>
-<g id="a_node6"><a xlink:title="Type: task&#10;Name: queryTable1&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006349-07:00&#10;Duration: 3.217443247s">
-<polygon fill="green" stroke="black" points="277.95,-180 191.46,-180 191.46,-144 277.95,-144 277.95,-180"/>
-<text text-anchor="middle" x="234.71" y="-157.8" font-family="Times,serif" font-size="14.00">queryTable1</text>
-</a>
-</g>
-</g>
-<!-- param_query1&#45;&gt;task_queryTable1 -->
-<g id="edge2" class="edge">
-<title>param_query1-&gt;task_queryTable1</title>
-<g id="a_edge2"><a xlink:title="Time: 2022-11-03T00:56:30.006349-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M54.41,-287.93C67.38,-268.4 90.86,-236.46 117.71,-216 136.86,-201.41 160.66,-189.69 181.79,-181.03"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="183.28,-184.21 191.29,-177.26 180.7,-177.7 183.28,-184.21"/>
-</a>
-</g>
-</g>
-<!-- root_job -->
-<g id="node3" class="node">
-<title>root_job</title>
-<g id="a_node3"><a xlink:title="Type: root&#10;Name: job&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006183-07:00&#10;Duration: 3.695µs">
-<polygon fill="green" stroke="black" points="281.71,-481.4 235.2,-444.5 328.22,-444.5 281.71,-481.4"/>
-<text text-anchor="middle" x="281.71" y="-452.6" font-family="Times,serif" font-size="14.00">job</text>
-</a>
-</g>
-</g>
-<!-- root_job&#45;&gt;param_table1 -->
-<g id="edge9" class="edge">
-<title>root_job-&gt;param_table1</title>
-<g id="a_edge9"><a xlink:title="Time: 2022-11-03T00:56:30.006196-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M235.81,-445.01C209.1,-436.29 177.15,-421.2 158.71,-396 145.78,-378.32 143.11,-353.3 143.35,-334.29"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="146.85,-334.29 143.75,-324.16 139.85,-334.01 146.85,-334.29"/>
-</a>
-</g>
-</g>
-<!-- root_job&#45;&gt;param_query1 -->
-<g id="edge10" class="edge">
-<title>root_job-&gt;param_query1</title>
-<g id="a_edge10"><a xlink:title="Time: 2022-11-03T00:56:30.0062-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M246.45,-444.44C217.12,-434.15 174.96,-417.34 141.71,-396 113.19,-377.7 85.02,-350.96 66.25,-331.57"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="68.73,-329.1 59.29,-324.28 63.66,-333.93 68.73,-329.1"/>
-</a>
-</g>
-</g>
-<!-- param_query2 -->
-<g id="node4" class="node">
-<title>param_query2</title>
-<g id="a_node4"><a xlink:title="Type: param&#10;Name: query2&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006197-07:00&#10;Duration: 13.781µs">
-<polygon fill="green" stroke="black" points="543.63,-378 521.67,-396 477.75,-396 455.79,-378 477.75,-360 521.67,-360 543.63,-378"/>
-<text text-anchor="middle" x="499.71" y="-373.8" font-family="Times,serif" font-size="14.00">query2</text>
-</a>
-</g>
-</g>
-<!-- root_job&#45;&gt;param_query2 -->
-<g id="edge12" class="edge">
-<title>root_job-&gt;param_query2</title>
-<g id="a_edge12"><a xlink:title="Time: 2022-11-03T00:56:30.006197-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M313.87,-444.47C352.69,-430.79 417.95,-407.8 459.9,-393.02"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="461.25,-396.26 469.52,-389.64 458.92,-389.66 461.25,-396.26"/>
-</a>
-</g>
-</g>
-<!-- param_table2 -->
-<g id="node7" class="node">
-<title>param_table2</title>
-<g id="a_node7"><a xlink:title="Type: param&#10;Name: table2&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006199-07:00&#10;Duration: 15.632µs">
-<polygon fill="green" stroke="black" points="437.69,-378 417.7,-396 377.72,-396 357.73,-378 377.72,-360 417.7,-360 437.69,-378"/>
-<text text-anchor="middle" x="397.71" y="-373.8" font-family="Times,serif" font-size="14.00">table2</text>
-</a>
-</g>
-</g>
-<!-- root_job&#45;&gt;param_table2 -->
-<g id="edge11" class="edge">
-<title>root_job-&gt;param_table2</title>
-<g id="a_edge11"><a xlink:title="Time: 2022-11-03T00:56:30.006199-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M298.82,-444.47C316.55,-432.73 344.64,-414.14 366.36,-399.76"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="368.52,-402.52 374.93,-394.08 364.66,-396.68 368.52,-402.52"/>
-</a>
-</g>
-</g>
-<!-- param_serverName -->
-<g id="node11" class="node">
-<title>param_serverName</title>
-<g id="a_node11"><a xlink:title="Type: param&#10;Name: serverName&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006198-07:00&#10;Duration: 14.638µs">
-<polygon fill="green" stroke="black" points="301.43,-378 268.07,-396 201.35,-396 167.99,-378 201.35,-360 268.07,-360 301.43,-378"/>
-<text text-anchor="middle" x="234.71" y="-373.8" font-family="Times,serif" font-size="14.00">serverName</text>
-</a>
-</g>
-</g>
-<!-- root_job&#45;&gt;param_serverName -->
-<g id="edge7" class="edge">
-<title>root_job-&gt;param_serverName</title>
-<g id="a_edge7"><a xlink:title="Time: 2022-11-03T00:56:30.006198-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M274.77,-444.47C268.42,-434.09 258.79,-418.36 250.57,-404.91"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="253.36,-402.77 245.15,-396.07 247.39,-406.42 253.36,-402.77"/>
-</a>
-</g>
-</g>
-<!-- task_checkAuth -->
-<g id="node13" class="node">
-<title>task_checkAuth</title>
-<g id="a_node13"><a xlink:title="Type: task&#10;Name: checkAuth&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006212-07:00&#10;Duration: 650ns">
-<polygon fill="green" stroke="black" points="326.85,-252 250.57,-252 250.57,-216 326.85,-216 326.85,-252"/>
-<text text-anchor="middle" x="288.71" y="-229.8" font-family="Times,serif" font-size="14.00">checkAuth</text>
-</a>
-</g>
-</g>
-<!-- root_job&#45;&gt;task_checkAuth -->
-<g id="edge8" class="edge">
-<title>root_job-&gt;task_checkAuth</title>
-<g id="a_edge8"><a xlink:title="Time: 2022-11-03T00:56:30.006212-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M289.14,-444.47C296.28,-432.85 306.58,-413.99 310.71,-396 321.45,-349.22 320.09,-335.07 310.71,-288 308.92,-279.01 305.57,-269.64 302.02,-261.32"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="305.16,-259.77 297.84,-252.12 298.79,-262.67 305.16,-259.77"/>
-</a>
-</g>
-</g>
-<!-- task_queryTable2 -->
-<g id="node9" class="node">
-<title>task_queryTable2</title>
-<g id="a_node9"><a xlink:title="Type: task&#10;Name: queryTable2&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006377-07:00&#10;Duration: 67.814µs">
-<polygon fill="green" stroke="black" points="384.95,-180 298.46,-180 298.46,-144 384.95,-144 384.95,-180"/>
-<text text-anchor="middle" x="341.71" y="-157.8" font-family="Times,serif" font-size="14.00">queryTable2</text>
-</a>
-</g>
-</g>
-<!-- param_query2&#45;&gt;task_queryTable2 -->
-<g id="edge5" class="edge">
-<title>param_query2-&gt;task_queryTable2</title>
-<g id="a_edge5"><a xlink:title="Time: 2022-11-03T00:56:30.006377-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M500.11,-359.8C499.94,-327.78 495.17,-258.43 459.71,-216 443.2,-196.25 417.82,-183.56 394.82,-175.57"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="395.73,-172.18 385.14,-172.42 393.57,-178.84 395.73,-172.18"/>
-</a>
-</g>
-</g>
-<!-- task_getTableClient1&#45;&gt;task_queryTable1 -->
-<g id="edge14" class="edge">
-<title>task_getTableClient1-&gt;task_queryTable1</title>
-<g id="a_edge14"><a xlink:title="Time: 2022-11-03T00:56:30.006349-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M193.3,-215.7C199.83,-207.39 207.78,-197.28 214.95,-188.14"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="217.84,-190.13 221.27,-180.1 212.34,-185.81 217.84,-190.13"/>
-</a>
-</g>
-</g>
-<!-- task_summarize -->
-<g id="node14" class="node">
-<title>task_summarize</title>
-<g id="a_node14"><a xlink:title="Type: task&#10;Name: summarize&#10;State: completed&#10;StartAt: 2022-11-03T00:56:33.22392-07:00&#10;Duration: 4.325µs">
-<polygon fill="green" stroke="black" points="325.63,-108 247.79,-108 247.79,-72 325.63,-72 325.63,-108"/>
-<text text-anchor="middle" x="286.71" y="-85.8" font-family="Times,serif" font-size="14.00">summarize</text>
-</a>
-</g>
-</g>
-<!-- task_queryTable1&#45;&gt;task_summarize -->
-<g id="edge15" class="edge">
-<title>task_queryTable1-&gt;task_summarize</title>
-<g id="a_edge15"><a xlink:title="Time: 2022-11-03T00:56:33.22392-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M247.56,-143.7C253.73,-135.39 261.25,-125.28 268.03,-116.14"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="270.85,-118.22 274,-108.1 265.23,-114.04 270.85,-118.22"/>
-</a>
-</g>
-</g>
-<!-- task_getTableClient2 -->
+<!-- Summarize -->
 <g id="node8" class="node">
-<title>task_getTableClient2</title>
-<g id="a_node8"><a xlink:title="Type: task&#10;Name: getTableClient2&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.00631-07:00&#10;Duration: 51.872µs">
-<polygon fill="green" stroke="black" points="450.9,-252 344.51,-252 344.51,-216 450.9,-216 450.9,-252"/>
-<text text-anchor="middle" x="397.71" y="-229.8" font-family="Times,serif" font-size="14.00">getTableClient2</text>
+<title style="">Summarize</title>
+<g id="a_node8"><a xlink:title="State: completed&#10;StartAt: 2022-12-12T12:00:32.254121-08:00&#10;Duration: 7.88µs" style="">
+<polygon fill="green" stroke="black" points="291.09,-90 259.31,-108 195.76,-108 163.98,-90 195.76,-72 259.31,-72 291.09,-90" style=""/>
+<text text-anchor="middle" x="227.53" y="-85.8" font-family="Times,serif" font-size="14.00" style="">Summarize</text>
 </a>
 </g>
 </g>
-<!-- param_table2&#45;&gt;task_getTableClient2 -->
-<g id="edge3" class="edge">
-<title>param_table2-&gt;task_getTableClient2</title>
-<g id="a_edge3"><a xlink:title="Time: 2022-11-03T00:56:30.00631-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M397.71,-359.87C397.71,-335.67 397.71,-291.21 397.71,-262.39"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="401.21,-262.19 397.71,-252.19 394.21,-262.19 401.21,-262.19"/>
-</a>
-</g>
-</g>
-<!-- task_getTableClient2&#45;&gt;task_queryTable2 -->
-<g id="edge4" class="edge">
-<title>task_getTableClient2-&gt;task_queryTable2</title>
-<g id="a_edge4"><a xlink:title="Time: 2022-11-03T00:56:30.006377-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M383.87,-215.7C377.22,-207.39 369.13,-197.28 361.82,-188.14"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="364.37,-185.73 355.39,-180.1 358.91,-190.1 364.37,-185.73"/>
-</a>
-</g>
-</g>
-<!-- task_queryTable2&#45;&gt;task_summarize -->
+<!-- QueryTable2&#45;&gt;Summarize -->
 <g id="edge6" class="edge">
-<title>task_queryTable2-&gt;task_summarize</title>
-<g id="a_edge6"><a xlink:title="Time: 2022-11-03T00:56:33.22392-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M328.11,-143.7C321.59,-135.39 313.64,-125.28 306.46,-116.14"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="309.08,-113.81 300.15,-108.1 303.57,-118.13 309.08,-113.81"/>
+<title style="">QueryTable2-&gt;Summarize</title>
+<g id="a_edge6"><a xlink:title="Time: 2022-12-12T12:00:32.254121-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M167.31,-143.7C177.29,-134.97 189.54,-124.24 200.39,-114.75" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="202.76,-117.32 207.98,-108.1 198.15,-112.06 202.76,-117.32" style=""/>
 </a>
 </g>
 </g>
-<!-- task_emailNotification -->
-<g id="node10" class="node">
-<title>task_emailNotification</title>
-<g id="a_node10"><a xlink:title="Type: task&#10;Name: emailNotification&#10;State: completed&#10;StartAt: 2022-11-03T00:56:33.223952-07:00&#10;Duration: 3.92µs">
-<polygon fill="green" stroke="black" points="343.95,-36 229.46,-36 229.46,0 343.95,0 343.95,-36"/>
-<text text-anchor="middle" x="286.71" y="-13.8" font-family="Times,serif" font-size="14.00">emailNotification</text>
+<!-- QueryTable1 -->
+<g id="node2" class="node">
+<title style="">QueryTable1</title>
+<g id="a_node2"><a xlink:title="State: completed&#10;StartAt: 2022-12-12T12:00:32.254098-08:00&#10;Duration: 11.394µs" style="">
+<polygon fill="green" stroke="black" points="380.17,-162 344.35,-180 272.71,-180 236.89,-162 272.71,-144 344.35,-144 380.17,-162" style=""/>
+<text text-anchor="middle" x="308.53" y="-157.8" font-family="Times,serif" font-size="14.00" style="">QueryTable1</text>
 </a>
 </g>
 </g>
-<!-- task_getConnection -->
-<g id="node12" class="node">
-<title>task_getConnection</title>
-<g id="a_node12"><a xlink:title="Type: task&#10;Name: getConnection&#10;State: completed&#10;StartAt: 2022-11-03T00:56:30.006231-07:00&#10;Duration: 62.234µs">
-<polygon fill="green" stroke="black" points="301.36,-324 204.06,-324 204.06,-288 301.36,-288 301.36,-324"/>
-<text text-anchor="middle" x="252.71" y="-301.8" font-family="Times,serif" font-size="14.00">getConnection</text>
+<!-- QueryTable1&#45;&gt;Summarize -->
+<g id="edge5" class="edge">
+<title style="">QueryTable1-&gt;Summarize</title>
+<g id="a_edge5"><a xlink:title="Time: 2022-12-12T12:00:32.254121-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M288.51,-143.7C278.41,-134.97 266,-124.24 255.02,-114.75" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="257.18,-111.99 247.32,-108.1 252.6,-117.29 257.18,-111.99" style=""/>
 </a>
 </g>
 </g>
-<!-- param_serverName&#45;&gt;task_getConnection -->
-<g id="edge13" class="edge">
-<title>param_serverName-&gt;task_getConnection</title>
-<g id="a_edge13"><a xlink:title="Time: 2022-11-03T00:56:30.006231-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M239.16,-359.7C241.16,-351.9 243.58,-342.51 245.81,-333.83"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="249.21,-334.66 248.31,-324.1 242.43,-332.92 249.21,-334.66"/>
+<!-- EmailNotification -->
+<g id="node3" class="node">
+<title style="">EmailNotification</title>
+<g id="a_node3"><a xlink:title="State: completed&#10;StartAt: 2022-12-12T12:00:32.254143-08:00&#10;Duration: 11.757µs" style="">
+<polygon fill="green" stroke="black" points="320.54,-18 274.04,-36 181.03,-36 134.52,-18 181.03,0 274.04,0 320.54,-18" style=""/>
+<text text-anchor="middle" x="227.53" y="-13.8" font-family="Times,serif" font-size="14.00" style="">EmailNotification</text>
 </a>
 </g>
 </g>
-<!-- task_getConnection&#45;&gt;task_getTableClient1 -->
-<g id="edge17" class="edge">
-<title>task_getConnection-&gt;task_getTableClient1</title>
-<g id="a_edge17"><a xlink:title="Time: 2022-11-03T00:56:30.006304-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M234.66,-287.7C225.65,-279.05 214.59,-268.45 204.77,-259.03"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="207.19,-256.5 197.55,-252.1 202.34,-261.55 207.19,-256.5"/>
+<!-- sqlSummaryJob -->
+<g id="node4" class="node">
+<title style="">sqlSummaryJob</title>
+<g id="a_node4"><a xlink:title="State: completed&#10;StartAt: 0001-01-01T00:00:00Z&#10;Duration: 0s" style="">
+<polygon fill="green" stroke="black" points="148.53,-409.4 1.94,-372.5 295.13,-372.5 148.53,-409.4" style=""/>
+<text text-anchor="middle" x="148.53" y="-380.6" font-family="Times,serif" font-size="14.00" style="">sqlSummaryJob</text>
 </a>
 </g>
 </g>
-<!-- task_getConnection&#45;&gt;task_getTableClient2 -->
-<g id="edge18" class="edge">
-<title>task_getConnection-&gt;task_getTableClient2</title>
-<g id="a_edge18"><a xlink:title="Time: 2022-11-03T00:56:30.00631-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M288.18,-287.88C307.83,-278.39 332.43,-266.51 353.34,-256.42"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="354.87,-259.57 362.35,-252.07 351.83,-253.26 354.87,-259.57"/>
+<!-- GetConnection -->
+<g id="node5" class="node">
+<title style="">GetConnection</title>
+<g id="a_node5"><a xlink:title="State: completed&#10;StartAt: 2022-12-12T12:00:32.253844-08:00&#10;Duration: 154.825µs" style="">
+<polygon fill="green" stroke="black" points="312.54,-306 272.54,-324 192.53,-324 152.52,-306 192.53,-288 272.54,-288 312.54,-306" style=""/>
+<text text-anchor="middle" x="232.53" y="-301.8" font-family="Times,serif" font-size="14.00" style="">GetConnection</text>
 </a>
 </g>
 </g>
-<!-- task_checkAuth&#45;&gt;task_queryTable1 -->
-<g id="edge19" class="edge">
-<title>task_checkAuth-&gt;task_queryTable1</title>
-<g id="a_edge19"><a xlink:title="Time: 2022-11-03T00:56:30.006349-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M275.36,-215.7C268.95,-207.39 261.15,-197.28 254.1,-188.14"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="256.78,-185.88 247.9,-180.1 251.24,-190.16 256.78,-185.88"/>
+<!-- sqlSummaryJob&#45;&gt;GetConnection -->
+<g id="edge9" class="edge">
+<title style="">sqlSummaryJob-&gt;GetConnection</title>
+<g id="a_edge9"><a xlink:title="Time: 2022-12-12T12:00:32.253844-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M160.93,-372.47C172.82,-361.6 191.15,-344.83 206.29,-330.99" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="208.85,-333.4 213.87,-324.07 204.13,-328.23 208.85,-333.4" style=""/>
 </a>
 </g>
 </g>
-<!-- task_checkAuth&#45;&gt;task_queryTable2 -->
-<g id="edge20" class="edge">
-<title>task_checkAuth-&gt;task_queryTable2</title>
-<g id="a_edge20"><a xlink:title="Time: 2022-11-03T00:56:30.006377-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M301.81,-215.7C308.1,-207.39 315.76,-197.28 322.67,-188.14"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="325.51,-190.19 328.76,-180.1 319.93,-185.96 325.51,-190.19"/>
+<!-- CheckAuth -->
+<g id="node9" class="node">
+<title style="">CheckAuth</title>
+<g id="a_node9"><a xlink:title="State: completed&#10;StartAt: 2022-12-12T12:00:32.253818-08:00&#10;Duration: 18.52µs" style="">
+<polygon fill="green" stroke="black" points="127.1,-234 95.32,-252 31.75,-252 -0.03,-234 31.75,-216 95.32,-216 127.1,-234" style=""/>
+<text text-anchor="middle" x="63.53" y="-229.8" font-family="Times,serif" font-size="14.00" style="">CheckAuth</text>
 </a>
 </g>
 </g>
-<!-- task_summarize&#45;&gt;task_emailNotification -->
-<g id="edge16" class="edge">
-<title>task_summarize-&gt;task_emailNotification</title>
-<g id="a_edge16"><a xlink:title="Time: 2022-11-03T00:56:33.223952-07:00">
-<path fill="none" stroke="green" stroke-width="2" d="M286.71,-71.7C286.71,-63.98 286.71,-54.71 286.71,-46.11"/>
-<polygon fill="green" stroke="green" stroke-width="2" points="290.21,-46.1 286.71,-36.1 283.21,-46.1 290.21,-46.1"/>
+<!-- sqlSummaryJob&#45;&gt;CheckAuth -->
+<g id="edge8" class="edge">
+<title style="">sqlSummaryJob-&gt;CheckAuth</title>
+<g id="a_edge8"><a xlink:title="Time: 2022-12-12T12:00:32.253818-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M141.86,-372.12C128.33,-348.43 97.34,-294.17 78.65,-261.46" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="81.5,-259.4 73.5,-252.45 75.42,-262.87 81.5,-259.4" style=""/>
+</a>
+</g>
+</g>
+<!-- GetTableClient2 -->
+<g id="node6" class="node">
+<title style="">GetTableClient2</title>
+<g id="a_node6"><a xlink:title="State: completed&#10;StartAt: 2022-12-12T12:00:32.254017-08:00&#10;Duration: 25.793µs" style="">
+<polygon fill="green" stroke="black" points="319.65,-234 276.09,-252 188.97,-252 145.41,-234 188.97,-216 276.09,-216 319.65,-234" style=""/>
+<text text-anchor="middle" x="232.53" y="-229.8" font-family="Times,serif" font-size="14.00" style="">GetTableClient2</text>
+</a>
+</g>
+</g>
+<!-- GetConnection&#45;&gt;GetTableClient2 -->
+<g id="edge10" class="edge">
+<title style="">GetConnection-&gt;GetTableClient2</title>
+<g id="a_edge10"><a xlink:title="Time: 2022-12-12T12:00:32.254017-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M232.53,-287.7C232.53,-279.98 232.53,-270.71 232.53,-262.11" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="236.03,-262.1 232.53,-252.1 229.03,-262.1 236.03,-262.1" style=""/>
+</a>
+</g>
+</g>
+<!-- GetTableClient1 -->
+<g id="node7" class="node">
+<title style="">GetTableClient1</title>
+<g id="a_node7"><a xlink:title="State: completed&#10;StartAt: 2022-12-12T12:00:32.254076-08:00&#10;Duration: 12.459µs" style="">
+<polygon fill="green" stroke="black" points="511.65,-234 468.09,-252 380.97,-252 337.41,-234 380.97,-216 468.09,-216 511.65,-234" style=""/>
+<text text-anchor="middle" x="424.53" y="-229.8" font-family="Times,serif" font-size="14.00" style="">GetTableClient1</text>
+</a>
+</g>
+</g>
+<!-- GetConnection&#45;&gt;GetTableClient1 -->
+<g id="edge11" class="edge">
+<title style="">GetConnection-&gt;GetTableClient1</title>
+<g id="a_edge11"><a xlink:title="Time: 2022-12-12T12:00:32.254076-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M275.62,-289.29C303.46,-279.14 339.92,-265.85 369.8,-254.96" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="371.05,-258.22 379.25,-251.51 368.65,-251.65 371.05,-258.22" style=""/>
+</a>
+</g>
+</g>
+<!-- GetTableClient2&#45;&gt;QueryTable2 -->
+<g id="edge3" class="edge">
+<title style="">GetTableClient2-&gt;QueryTable2</title>
+<g id="a_edge3"><a xlink:title="Time: 2022-12-12T12:00:32.254054-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M211.52,-215.7C200.82,-206.88 187.64,-196.03 176.04,-186.47" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="178.25,-183.76 168.3,-180.1 173.8,-189.16 178.25,-183.76" style=""/>
+</a>
+</g>
+</g>
+<!-- GetTableClient1&#45;&gt;QueryTable1 -->
+<g id="edge4" class="edge">
+<title style="">GetTableClient1-&gt;QueryTable1</title>
+<g id="a_edge4"><a xlink:title="Time: 2022-12-12T12:00:32.254098-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M396.16,-215.88C380.99,-206.72 362.13,-195.34 345.79,-185.48" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="347.39,-182.36 337.02,-180.19 343.77,-188.35 347.39,-182.36" style=""/>
+</a>
+</g>
+</g>
+<!-- Summarize&#45;&gt;EmailNotification -->
+<g id="edge7" class="edge">
+<title style="">Summarize-&gt;EmailNotification</title>
+<g id="a_edge7"><a xlink:title="Time: 2022-12-12T12:00:32.254143-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M227.53,-71.7C227.53,-63.98 227.53,-54.71 227.53,-46.11" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="231.03,-46.1 227.53,-36.1 224.03,-46.1 231.03,-46.1" style=""/>
+</a>
+</g>
+</g>
+<!-- CheckAuth&#45;&gt;QueryTable2 -->
+<g id="edge1" class="edge">
+<title style="">CheckAuth-&gt;QueryTable2</title>
+<g id="a_edge1"><a xlink:title="Time: 2022-12-12T12:00:32.254054-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M84.3,-215.7C94.77,-206.97 107.64,-196.24 119.03,-186.75" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="121.57,-189.19 127.01,-180.1 117.08,-183.82 121.57,-189.19" style=""/>
+</a>
+</g>
+</g>
+<!-- CheckAuth&#45;&gt;QueryTable1 -->
+<g id="edge2" class="edge">
+<title style="">CheckAuth-&gt;QueryTable1</title>
+<g id="a_edge2"><a xlink:title="Time: 2022-12-12T12:00:32.254098-08:00" style="">
+<path fill="none" stroke="green" stroke-width="2" d="M104.82,-221.2C145.85,-209.48 209.02,-191.43 254.13,-178.54" style=""/>
+<polygon fill="green" stroke="green" stroke-width="2" points="255.1,-181.91 263.76,-175.79 253.18,-175.18 255.1,-181.91" style=""/>
 </a>
 </g>
 </g>
