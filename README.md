@@ -93,6 +93,8 @@ func BuildJob(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefin
 	jobInstance1 := SqlSummaryAsyncJobDefinition.Start(ctx, &SqlSummaryJobLib{...})
 	jobInstance2 := SqlSummaryAsyncJobDefinition.Start(ctx, &SqlSummaryJobLib{...})
 
+    // ...
+
 	jobInstance1.Wait(context.WithTimeout(context.Background(), 10*time.Second))
 	jobInstance2.Wait(context.WithTimeout(context.Background(), 10*time.Second))
 ```
@@ -133,3 +135,13 @@ digraph {
 }
 ```
 
+### collect result from job
+you can enrich job to aware result from given step, then you can collect result (strongly typed) from that step
+
+```
+var SqlSummaryAsyncJobDefinition *asyncjob.JobDefinitionWithResult[SqlSummaryJobLib, SummarizedResult]
+SqlSummaryAsyncJobDefinition = asyncjob.JobWithResult(job /*from previous section*/, summaryTsk)
+
+jobInstance1 := SqlSummaryAsyncJobDefinition.Start(ctx, &SqlSummaryJobLib{...})
+result, err := jobInstance1.Result(ctx)
+```
