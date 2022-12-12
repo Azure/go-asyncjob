@@ -6,7 +6,6 @@ import (
 )
 
 type StepExecutionOptions struct {
-	Timeout       time.Duration
 	ErrorPolicy   StepErrorPolicy
 	RetryPolicy   RetryPolicy
 	ContextPolicy StepContextPolicy
@@ -40,14 +39,6 @@ func ExecuteAfter(step StepDefinitionMeta) ExecutionOptionPreparer {
 func WithRetry(retryPolicy RetryPolicy) ExecutionOptionPreparer {
 	return func(options *StepExecutionOptions) *StepExecutionOptions {
 		options.RetryPolicy = retryPolicy
-		return options
-	}
-}
-
-// Limit time spend on a step.
-func WithTimeout(timeout time.Duration) ExecutionOptionPreparer {
-	return func(options *StepExecutionOptions) *StepExecutionOptions {
-		options.Timeout = timeout
 		return options
 	}
 }

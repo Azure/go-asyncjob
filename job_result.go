@@ -26,8 +26,8 @@ type JobInstanceWithResult[Tin, Tout any] struct {
 	resultStep *StepInstance[Tout]
 }
 
-func (jd *JobDefinitionWithResult[Tin, Tout]) Start(ctx context.Context, input *Tin) *JobInstanceWithResult[Tin, Tout] {
-	ji := jd.JobDefinition.Start(ctx, input)
+func (jd *JobDefinitionWithResult[Tin, Tout]) Start(ctx context.Context, input *Tin, jobOptions ...JobOptionPreparer) *JobInstanceWithResult[Tin, Tout] {
+	ji := jd.JobDefinition.Start(ctx, input, jobOptions...)
 
 	return &JobInstanceWithResult[Tin, Tout]{
 		JobInstance: ji,
