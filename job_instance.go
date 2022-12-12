@@ -7,9 +7,11 @@ import (
 
 	"github.com/Azure/go-asyncjob/graph"
 	"github.com/Azure/go-asynctask"
+	"github.com/google/uuid"
 )
 
 type JobInstanceMeta interface {
+	GetJobInstanceId() string
 	GetJobDefinition() JobDefinitionMeta
 	GetStepInstance(stepName string) (StepInstanceMeta, bool)
 	Wait(context.Context) error
@@ -17,9 +19,6 @@ type JobInstanceMeta interface {
 
 	// not exposing for now
 	addStepInstance(step StepInstanceMeta, precedingSteps ...StepInstanceMeta)
-
-	// future considering:
-	//  - return result of given step
 }
 
 type JobExecutionOptions struct {
@@ -65,6 +64,10 @@ func newJobInstance[T any](jd *JobDefinition[T], input *T, jobInstanceOptions ..
 
 	for _, decorator := range jobInstanceOptions {
 		ji.jobOptions = decorator(ji.jobOptions)
+	}
+
+	if ji.jobOptions.Id == "" {
+		ji.jobOptions.Id = uuid.New().String()
 	}
 
 	return ji

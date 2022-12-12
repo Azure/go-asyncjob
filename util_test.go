@@ -108,7 +108,7 @@ func BuildJob(bCtx context.Context, retryPolicies map[string]asyncjob.RetryPolic
 		return nil, fmt.Errorf("error adding step GetConnection: %w", err)
 	}
 
-	checkAuthTask, err := asyncjob.AddStep(bCtx, job, "CheckAuth", checkAuthStepFunc)
+	checkAuthTask, err := asyncjob.AddStep(bCtx, job, "CheckAuth", checkAuthStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
 		return nil, fmt.Errorf("error adding step CheckAuth: %w", err)
 	}
@@ -295,9 +295,10 @@ func (sql *SqlSummaryJobLib) Logging(ctx context.Context, msg string) {
 		t := tI.(*testing.T)
 
 		jobName := ctx.Value("asyncjob.jobName")
+		jobId := ctx.Value("asyncjob.jobId")
 		stepName := ctx.Value("asyncjob.stepName")
 
-		t.Logf("[Job: %s, Step: %s] %s", jobName, stepName, msg)
+		t.Logf("[Job: %s-%s, Step: %s] %s", jobName, jobId, stepName, msg)
 
 	} else {
 		fmt.Println(msg)
@@ -306,6 +307,7 @@ func (sql *SqlSummaryJobLib) Logging(ctx context.Context, msg string) {
 
 func EnrichContext(ctx context.Context, instanceMeta asyncjob.StepInstanceMeta) context.Context {
 	ctx = context.WithValue(ctx, "asyncjob.jobName", instanceMeta.GetJobInstance().GetJobDefinition().GetName())
+	ctx = context.WithValue(ctx, "asyncjob.jobId", instanceMeta.GetJobInstance().GetJobInstanceId())
 	ctx = context.WithValue(ctx, "asyncjob.stepName", instanceMeta.GetStepDefinition().GetName())
 	return ctx
 }
