@@ -20,9 +20,6 @@ type StepDefinitionMeta interface {
 	// DependsOn return the list of step names that this step depends on
 	DependsOn() []string
 
-	// ExecutionPolicy return the execution policy of the step
-	ExecutionPolicy() *StepExecutionOptions
-
 	// DotSpec used for generating graphviz graph
 	DotSpec() *graph.DotNodeSpec
 
@@ -58,10 +55,6 @@ func (sd *StepDefinition[T]) GetName() string {
 
 func (sd *StepDefinition[T]) DependsOn() []string {
 	return sd.executionOptions.DependOn
-}
-
-func (sd *StepDefinition[T]) ExecutionPolicy() *StepExecutionOptions {
-	return sd.executionOptions
 }
 
 func (sd *StepDefinition[T]) createStepInstance(ctx context.Context, jobInstance JobInstanceMeta) StepInstanceMeta {
