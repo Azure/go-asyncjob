@@ -4,6 +4,10 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 
 # Concepts
 **JobDefinition** is a graph describe code blocks and their connections.
+- you can use AddStep, StepAfter, StepAfterBoth to organize steps in a JobDefinition.
+- jobDefinition can be and should be build and seal in package init time.
+- jobDefinition have a generic typed input
+- calling Start with the input, will instantiate an jobInstance, and steps will began to execute.
 - jobDefinition can be visualized using graphviz, easier for human to understand.
 
 **JobInstance** is an instance of JobDefinition, after calling .Start() method from JobDefinition
@@ -14,6 +18,7 @@ AsyncJob aiming to help you organize code in dependencyGraph(DAG), instead of a 
 **StepDefinition** is a individual code block which can be executed and have inputs, output.
 - StepDefinition describe it's preceding steps.
 - StepDefinition contains generic Params
+- ideally all stepMethod should come from JobInput (generic type on JobDefinition), or static method. To avoid shared state between jobs.
 - output of a step can be feed into next step as input, type is checked by go generics.
 
 **StepInstance** is instance of StepDefinition
