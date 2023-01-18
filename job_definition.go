@@ -37,7 +37,7 @@ func NewJobDefinition[T any](name string) *JobDefinition[T] {
 	j := &JobDefinition[T]{
 		name:     name,
 		steps:    make(map[string]StepDefinitionMeta),
-		stepsDag: graph.NewGraph[StepDefinitionMeta](connectStepDefinition),
+		stepsDag: graph.NewGraph(connectStepDefinition),
 	}
 
 	rootStep := newStepDefinition[T](name, stepTypeRoot)

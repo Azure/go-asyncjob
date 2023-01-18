@@ -3,7 +3,6 @@ package asyncjob
 import (
 	"context"
 	"errors"
-	"sync"
 
 	"github.com/Azure/go-asyncjob/graph"
 	"github.com/Azure/go-asynctask"
@@ -47,7 +46,6 @@ type JobInstance[T any] struct {
 	jobOptions *JobExecutionOptions
 	input      *T
 	Definition *JobDefinition[T]
-	jobStart   *sync.WaitGroup
 	rootStep   *StepInstance[T]
 	steps      map[string]StepInstanceMeta
 	stepsDag   *graph.Graph[StepInstanceMeta]
@@ -58,7 +56,7 @@ func newJobInstance[T any](jd *JobDefinition[T], input *T, jobInstanceOptions ..
 		Definition: jd,
 		input:      input,
 		steps:      map[string]StepInstanceMeta{},
-		stepsDag:   graph.NewGraph[StepInstanceMeta](connectStepInstance),
+		stepsDag:   graph.NewGraph(connectStepInstance),
 		jobOptions: &JobExecutionOptions{},
 	}
 
@@ -76,7 +74,7 @@ func newJobInstance[T any](jd *JobDefinition[T], input *T, jobInstanceOptions ..
 func (ji *JobInstance[T]) start(ctx context.Context) {
 	// create root step instance
 	ji.rootStep = newStepInstance(ji.Definition.rootStep, ji)
-	ji.rootStep.task = asynctask.NewCompletedTask[T](ji.input)
+	ji.rootStep.task = asynctask.NewCompletedTask(ji.input)
 	ji.rootStep.state = StepStateCompleted
 	ji.steps[ji.rootStep.GetName()] = ji.rootStep
 	ji.stepsDag.AddNode(ji.rootStep)
