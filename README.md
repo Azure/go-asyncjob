@@ -145,3 +145,39 @@ SqlSummaryAsyncJobDefinition = asyncjob.JobWithResult(job /*from previous sectio
 jobInstance1 := SqlSummaryAsyncJobDefinition.Start(ctx, &SqlSummaryJobLib{...})
 result, err := jobInstance1.Result(ctx)
 ```
+
+### Overhead?
+- go routine will be created for each step in your jobDefinition, when you call .Start()
+- each step also hold tiny memory as well for state tracking.
+- userFunction is instrumented with state tracking, panic handling.
+
+Here is some simple visualize on how it actual looks like:
+```mermaid
+gantt
+    title       asyncjob.Start()
+    dateFormat  HH:mm
+
+    section GetConnection
+    WaitPrecedingTasks            :des11, 00:00,0ms
+    userFunction                  :des12, after des11, 20ms
+
+    section GetTableClient1
+    WaitPrecedingTasks            :des21, 00:00,20ms
+    userFunction                  :des22, after des21, 15ms
+
+    section GetTableClient2
+    WaitPrecedingTasks            :des31, 00:00,20ms
+    userFunction                  :des32, after des31, 21ms
+
+    section QueryTable1
+    WaitPrecedingTasks            :des41, 00:00,35ms
+    userFunction                  :des42, after des41, 24ms
+
+    section QueryTable2
+    WaitPrecedingTasks            :des51, 00:00,41ms
+    userFunction                  :des52, after des51, 30ms
+
+    section QueryResultSummarize
+    WaitPrecedingTasks            :des61, 00:00, 71ms
+    userFunction                  :des62, after des61, 10ms
+```

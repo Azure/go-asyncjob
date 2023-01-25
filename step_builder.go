@@ -37,7 +37,7 @@ func AddStep[JT, ST any](j *JobDefinition[JT], stepName string, stepFuncCreator 
 			// handle panic from user code
 			defer func() {
 				if r := recover(); r != nil {
-					err = fmt.Errorf("Panic cought: %v, StackTrace: %s", r, debug.Stack())
+					err = fmt.Errorf("panic cought: %v, StackTrace: %s", r, debug.Stack())
 				}
 			}()
 
@@ -45,7 +45,7 @@ func AddStep[JT, ST any](j *JobDefinition[JT], stepName string, stepFuncCreator 
 			return result, err
 		}
 
-		stepInstance := newStepInstance[ST](stepD, ji)
+		stepInstance := newStepInstance(stepD, ji)
 		stepInstance.task = asynctask.Start(ctx, instrumentedAddStep(stepInstance, precedingTasks, stepFuncWithPanicHandling))
 		ji.addStepInstance(stepInstance, precedingInstances...)
 		return stepInstance
@@ -79,7 +79,7 @@ func StepAfter[JT, PT, ST any](j *JobDefinition[JT], stepName string, parentStep
 			// handle panic from user code
 			defer func() {
 				if r := recover(); r != nil {
-					err = fmt.Errorf("Panic cought: %v, StackTrace: %s", r, debug.Stack())
+					err = fmt.Errorf("panic cought: %v, StackTrace: %s", r, debug.Stack())
 				}
 			}()
 
@@ -88,7 +88,7 @@ func StepAfter[JT, PT, ST any](j *JobDefinition[JT], stepName string, parentStep
 		}
 
 		parentStepInstance := getStrongTypedStepInstance(parentStep, ji)
-		stepInstance := newStepInstance[ST](stepD, ji)
+		stepInstance := newStepInstance(stepD, ji)
 		// here ContinueWith may not invoke instrumentedStepAfterBoth at all, if parentStep1 or parentStep2 returns error.
 		stepInstance.task = asynctask.ContinueWith(ctx, parentStepInstance.task, instrumentedStepAfter(stepInstance, precedingTasks, stepFuncWithPanicHandling))
 		ji.addStepInstance(stepInstance, precedingInstances...)
@@ -128,7 +128,7 @@ func StepAfterBoth[JT, PT1, PT2, ST any](j *JobDefinition[JT], stepName string, 
 			// handle panic from user code
 			defer func() {
 				if r := recover(); r != nil {
-					err = fmt.Errorf("Panic cought: %v, StackTrace: %s", r, debug.Stack())
+					err = fmt.Errorf("panic cought: %v, StackTrace: %s", r, debug.Stack())
 				}
 			}()
 
@@ -137,7 +137,7 @@ func StepAfterBoth[JT, PT1, PT2, ST any](j *JobDefinition[JT], stepName string, 
 		}
 		parentStepInstance1 := getStrongTypedStepInstance(parentStep1, ji)
 		parentStepInstance2 := getStrongTypedStepInstance(parentStep2, ji)
-		stepInstance := newStepInstance[ST](stepD, ji)
+		stepInstance := newStepInstance(stepD, ji)
 		// here AfterBoth may not invoke instrumentedStepAfterBoth at all, if parentStep1 or parentStep2 returns error.
 		stepInstance.task = asynctask.AfterBoth(ctx, parentStepInstance1.task, parentStepInstance2.task, instrumentedStepAfterBoth(stepInstance, precedingTasks, stepFuncWithPanicHandling))
 		ji.addStepInstance(stepInstance, precedingInstances...)

@@ -3,6 +3,7 @@ package asyncjob_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,7 +11,9 @@ import (
 	"github.com/Azure/go-asynctask"
 )
 
-const testLoggingContextKey = "test-logging"
+type testingLoggerKey string
+
+const testLoggingContextKey testingLoggerKey = "test-logging"
 
 // SqlSummaryAsyncJobDefinition is the job definition for the SqlSummaryJobLib
 //   JobDefinition fit perfectly in init() function
@@ -28,35 +31,20 @@ func init() {
 
 type SqlSummaryJobLib struct {
 	Params *SqlSummaryJobParameters
+
+	// assume you have some state that you want to share between steps
+	// you can use a mutex to protect the data writen between different steps
+	// this kind of error is not fault of this library.
+	data  map[string]interface{}
+	mutex sync.Mutex
 }
 
-func serverNameStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[string] {
-	return func(ctx context.Context) (*string, error) {
-		return &sql.Params.ServerName, nil
-	}
-}
+func NewSqlJobLib(params *SqlSummaryJobParameters) *SqlSummaryJobLib {
+	return &SqlSummaryJobLib{
+		Params: params,
 
-func table1NameStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[string] {
-	return func(ctx context.Context) (*string, error) {
-		return &sql.Params.Table1, nil
-	}
-}
-
-func table2NameStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[string] {
-	return func(ctx context.Context) (*string, error) {
-		return &sql.Params.Table2, nil
-	}
-}
-
-func query1ParamStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[string] {
-	return func(ctx context.Context) (*string, error) {
-		return &sql.Params.Query1, nil
-	}
-}
-
-func query2ParamStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[string] {
-	return func(ctx context.Context) (*string, error) {
-		return &sql.Params.Query2, nil
+		data:  make(map[string]interface{}),
+		mutex: sync.Mutex{},
 	}
 }
 
@@ -253,6 +241,14 @@ func (sql *SqlSummaryJobLib) ExecuteQuery(ctx context.Context, tableClient *SqlT
 			return nil, errFunc()
 		}
 	}
+
+	// assume you have some state that you want to share between steps
+	// you can use a mutex to protect the data writen between different steps
+	// uncomment the mutex code, and run test with --race
+	sql.mutex.Lock()
+	defer sql.mutex.Unlock()
+	sql.data["serverName"] = tableClient.ServerName
+	sql.data[tableClient.TableName] = *queryString
 
 	return &SqlQueryResult{Data: map[string]interface{}{"serverName": tableClient.ServerName, "tableName": tableClient.TableName, "queryName": *queryString}}, nil
 }
