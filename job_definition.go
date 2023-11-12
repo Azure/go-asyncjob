@@ -32,7 +32,8 @@ type JobDefinition[T any] struct {
 }
 
 // Create new JobDefinition
-//   it is suggest to build jobDefinition statically on process start, and reuse it for each job instance.
+//
+//	it is suggest to build jobDefinition statically on process start, and reuse it for each job instance.
 func NewJobDefinition[T any](name string) *JobDefinition[T] {
 	j := &JobDefinition[T]{
 		name:     name,
@@ -50,9 +51,10 @@ func NewJobDefinition[T any](name string) *JobDefinition[T] {
 }
 
 // Start execution of the job definition.
-//   this will create and return new instance of the job
-//   caller will then be able to wait for the job instance
-func (jd *JobDefinition[T]) Start(ctx context.Context, input *T, jobOptions ...JobOptionPreparer) *JobInstance[T] {
+//
+//	this will create and return new instance of the job
+//	caller will then be able to wait for the job instance
+func (jd *JobDefinition[T]) Start(ctx context.Context, input T, jobOptions ...JobOptionPreparer) *JobInstance[T] {
 	if !jd.Sealed() {
 		jd.Seal()
 	}

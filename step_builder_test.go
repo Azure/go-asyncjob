@@ -16,7 +16,7 @@ func TestDefinitionRendering(t *testing.T) {
 func TestDefinitionBuilder(t *testing.T) {
 	t.Parallel()
 
-	job := asyncjob.NewJobDefinition[SqlSummaryJobLib]("sqlSummaryJob")
+	job := asyncjob.NewJobDefinition[*SqlSummaryJobLib]("sqlSummaryJob")
 	notExistingTask := &asyncjob.StepDefinition[any]{}
 
 	_, err := asyncjob.AddStep(job, "GetConnection", connectionStepFunc, asyncjob.ExecuteAfter(notExistingTask), asyncjob.WithContextEnrichment(EnrichContext))
@@ -54,7 +54,7 @@ func TestDefinitionBuilder(t *testing.T) {
 	_, err = asyncjob.StepAfterBoth(job, "Summarize1", query1Task, query1Task, summarizeQueryResultStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	assert.EqualError(t, err, "DuplicateInputParentStep: at least 2 input parentSteps are same")
 
-	query3Task := &asyncjob.StepDefinition[SqlQueryResult]{}
+	query3Task := &asyncjob.StepDefinition[*SqlQueryResult]{}
 	_, err = asyncjob.StepAfterBoth(job, "Summarize2", query1Task, query3Task, summarizeQueryResultStepFunc, asyncjob.WithContextEnrichment(EnrichContext))
 	assert.EqualError(t, err, "RefStepNotInJob: trying to reference to step \"\", but it is not registered in job")
 

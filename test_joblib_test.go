@@ -16,8 +16,9 @@ type testingLoggerKey string
 const testLoggingContextKey testingLoggerKey = "test-logging"
 
 // SqlSummaryAsyncJobDefinition is the job definition for the SqlSummaryJobLib
-//   JobDefinition fit perfectly in init() function
-var SqlSummaryAsyncJobDefinition *asyncjob.JobDefinitionWithResult[SqlSummaryJobLib, SummarizedResult]
+//
+//	JobDefinition fit perfectly in init() function
+var SqlSummaryAsyncJobDefinition *asyncjob.JobDefinitionWithResult[*SqlSummaryJobLib, *SummarizedResult]
 
 func init() {
 	var err error
@@ -48,7 +49,7 @@ func NewSqlJobLib(params *SqlSummaryJobParameters) *SqlSummaryJobLib {
 	}
 }
 
-func connectionStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[SqlConnection] {
+func connectionStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[*SqlConnection] {
 	return func(ctx context.Context) (*SqlConnection, error) {
 		return sql.GetConnection(ctx, &sql.Params.ServerName)
 	}
@@ -60,31 +61,31 @@ func checkAuthStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[interface{}] {
 	})
 }
 
-func tableClient1StepFunc(sql *SqlSummaryJobLib) asynctask.ContinueFunc[SqlConnection, SqlTableClient] {
+func tableClient1StepFunc(sql *SqlSummaryJobLib) asynctask.ContinueFunc[*SqlConnection, *SqlTableClient] {
 	return func(ctx context.Context, conn *SqlConnection) (*SqlTableClient, error) {
 		return sql.GetTableClient(ctx, conn, &sql.Params.Table1)
 	}
 }
 
-func tableClient2StepFunc(sql *SqlSummaryJobLib) asynctask.ContinueFunc[SqlConnection, SqlTableClient] {
+func tableClient2StepFunc(sql *SqlSummaryJobLib) asynctask.ContinueFunc[*SqlConnection, *SqlTableClient] {
 	return func(ctx context.Context, conn *SqlConnection) (*SqlTableClient, error) {
 		return sql.GetTableClient(ctx, conn, &sql.Params.Table2)
 	}
 }
 
-func queryTable1StepFunc(sql *SqlSummaryJobLib) asynctask.ContinueFunc[SqlTableClient, SqlQueryResult] {
+func queryTable1StepFunc(sql *SqlSummaryJobLib) asynctask.ContinueFunc[*SqlTableClient, *SqlQueryResult] {
 	return func(ctx context.Context, tableClient *SqlTableClient) (*SqlQueryResult, error) {
 		return sql.ExecuteQuery(ctx, tableClient, &sql.Params.Query1)
 	}
 }
 
-func queryTable2StepFunc(sql *SqlSummaryJobLib) asynctask.ContinueFunc[SqlTableClient, SqlQueryResult] {
+func queryTable2StepFunc(sql *SqlSummaryJobLib) asynctask.ContinueFunc[*SqlTableClient, *SqlQueryResult] {
 	return func(ctx context.Context, tableClient *SqlTableClient) (*SqlQueryResult, error) {
 		return sql.ExecuteQuery(ctx, tableClient, &sql.Params.Query2)
 	}
 }
 
-func summarizeQueryResultStepFunc(sql *SqlSummaryJobLib) asynctask.AfterBothFunc[SqlQueryResult, SqlQueryResult, SummarizedResult] {
+func summarizeQueryResultStepFunc(sql *SqlSummaryJobLib) asynctask.AfterBothFunc[*SqlQueryResult, *SqlQueryResult, *SummarizedResult] {
 	return func(ctx context.Context, query1Result *SqlQueryResult, query2Result *SqlQueryResult) (*SummarizedResult, error) {
 		return sql.SummarizeQueryResult(ctx, query1Result, query2Result)
 	}
@@ -96,8 +97,8 @@ func emailNotificationStepFunc(sql *SqlSummaryJobLib) asynctask.AsyncFunc[interf
 	})
 }
 
-func BuildJob(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinition[SqlSummaryJobLib], error) {
-	job := asyncjob.NewJobDefinition[SqlSummaryJobLib]("sqlSummaryJob")
+func BuildJob(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinition[*SqlSummaryJobLib], error) {
+	job := asyncjob.NewJobDefinition[*SqlSummaryJobLib]("sqlSummaryJob")
 
 	connTsk, err := asyncjob.AddStep(job, "GetConnection", connectionStepFunc, asyncjob.WithRetry(retryPolicies["GetConnection"]), asyncjob.WithContextEnrichment(EnrichContext))
 	if err != nil {
@@ -141,7 +142,7 @@ func BuildJob(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefin
 	return job, nil
 }
 
-func BuildJobWithResult(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinitionWithResult[SqlSummaryJobLib, SummarizedResult], error) {
+func BuildJobWithResult(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjob.JobDefinitionWithResult[*SqlSummaryJobLib, *SummarizedResult], error) {
 	job, err := BuildJob(retryPolicies)
 	if err != nil {
 		return nil, err
@@ -151,7 +152,7 @@ func BuildJobWithResult(retryPolicies map[string]asyncjob.RetryPolicy) (*asyncjo
 	if !ok {
 		return nil, fmt.Errorf("step Summarize not found")
 	}
-	summaryStep, ok := summaryStepMeta.(*asyncjob.StepDefinition[SummarizedResult])
+	summaryStep, ok := summaryStepMeta.(*asyncjob.StepDefinition[*SummarizedResult])
 	if !ok {
 		return nil, fmt.Errorf("step Summarize have different generic type parameter: %T", summaryStepMeta)
 	}
