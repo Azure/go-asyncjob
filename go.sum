@@ -2,6 +2,8 @@ github.com/Azure/go-asyncjob/graph v0.2.0 h1:0GFnQit3+ZUxpc67ogusooa38GSFRPH2e1+
 github.com/Azure/go-asyncjob/graph v0.2.0/go.mod h1:3Z7w9aUBIrDriypH8O+hK0aeqKWKYuKSNxwrDxFy34s=
 github.com/Azure/go-asynctask v1.4.0 h1:dJx6RXLqWGXI9jvFkwc30eEQfcvO9wCAyjI08H9kf1A=
 github.com/Azure/go-asynctask v1.4.0/go.mod h1:xmdyX2MRd9vCpnglRFMz7D8pMjuz1lNhC5yVmsMHn48=
+github.com/Azure/go-asynctask v1.6.0 h1:Njc/K4Q7LmG3Z5UVESiKcnS8Sn9LAZRF8OlQhFjMvq0=
+github.com/Azure/go-asynctask v1.6.0/go.mod h1:RLw9j8Ln+K0PBJGo4qOsRsFuGxq4DAZ03nghoBcIqNA=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/uuid v1.4.0 h1:MtMxsa51/r9yyhkyLsVeVt0B+BGQZzpQiTQ4eHZ8bc4=
