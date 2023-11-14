@@ -26,7 +26,7 @@ type JobInstanceWithResult[Tin, Tout any] struct {
 	resultStep *StepInstance[Tout]
 }
 
-func (jd *JobDefinitionWithResult[Tin, Tout]) Start(ctx context.Context, input *Tin, jobOptions ...JobOptionPreparer) *JobInstanceWithResult[Tin, Tout] {
+func (jd *JobDefinitionWithResult[Tin, Tout]) Start(ctx context.Context, input Tin, jobOptions ...JobOptionPreparer) *JobInstanceWithResult[Tin, Tout] {
 	ji := jd.JobDefinition.Start(ctx, input, jobOptions...)
 
 	return &JobInstanceWithResult[Tin, Tout]{
@@ -36,7 +36,8 @@ func (jd *JobDefinitionWithResult[Tin, Tout]) Start(ctx context.Context, input *
 }
 
 // Result returns the result of the job from result step.
-//    it doesn't wait for all steps to finish, you can use Result() after Wait() if desired.
-func (ji *JobInstanceWithResult[Tin, Tout]) Result(ctx context.Context) (*Tout, error) {
+//
+//	it doesn't wait for all steps to finish, you can use Result() after Wait() if desired.
+func (ji *JobInstanceWithResult[Tin, Tout]) Result(ctx context.Context) (Tout, error) {
 	return ji.resultStep.task.Result(ctx)
 }

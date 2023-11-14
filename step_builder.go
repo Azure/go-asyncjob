@@ -10,7 +10,7 @@ import (
 )
 
 // AddStep adds a step to the job definition.
-func AddStep[JT, ST any](j *JobDefinition[JT], stepName string, stepFuncCreator func(input *JT) asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+func AddStep[JT, ST any](j *JobDefinition[JT], stepName string, stepFuncCreator func(input JT) asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
 	if err := addStepPreCheck(j, stepName); err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func AddStep[JT, ST any](j *JobDefinition[JT], stepName string, stepFuncCreator 
 
 		jiStrongTyped := ji.(*JobInstance[JT])
 		stepFunc := stepFuncCreator(jiStrongTyped.input)
-		stepFuncWithPanicHandling := func(ctx context.Context) (result *ST, err error) {
+		stepFuncWithPanicHandling := func(ctx context.Context) (result ST, err error) {
 			// handle panic from user code
 			defer func() {
 				if r := recover(); r != nil {
@@ -58,7 +58,7 @@ func AddStep[JT, ST any](j *JobDefinition[JT], stepName string, stepFuncCreator 
 }
 
 // StepAfter add a step after a preceding step, also take input from that preceding step
-func StepAfter[JT, PT, ST any](j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepAfterFuncCreator func(input *JT) asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+func StepAfter[JT, PT, ST any](j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepAfterFuncCreator func(input JT) asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
 	if err := addStepPreCheck(j, stepName); err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func StepAfter[JT, PT, ST any](j *JobDefinition[JT], stepName string, parentStep
 
 		jiStrongTyped := ji.(*JobInstance[JT])
 		stepFunc := stepAfterFuncCreator(jiStrongTyped.input)
-		stepFuncWithPanicHandling := func(ctx context.Context, pt *PT) (result *ST, err error) {
+		stepFuncWithPanicHandling := func(ctx context.Context, pt PT) (result ST, err error) {
 			// handle panic from user code
 			defer func() {
 				if r := recover(); r != nil {
@@ -102,7 +102,7 @@ func StepAfter[JT, PT, ST any](j *JobDefinition[JT], stepName string, parentStep
 }
 
 // StepAfterBoth add a step after both preceding steps, also take input from both preceding steps
-func StepAfterBoth[JT, PT1, PT2, ST any](j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepAfterBothFuncCreator func(input *JT) asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
+func StepAfterBoth[JT, PT1, PT2, ST any](j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepAfterBothFuncCreator func(input JT) asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
 	if err := addStepPreCheck(j, stepName); err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func StepAfterBoth[JT, PT1, PT2, ST any](j *JobDefinition[JT], stepName string, 
 
 		jiStrongTyped := ji.(*JobInstance[JT])
 		stepFunc := stepAfterBothFuncCreator(jiStrongTyped.input)
-		stepFuncWithPanicHandling := func(ctx context.Context, pt1 *PT1, pt2 *PT2) (result *ST, err error) {
+		stepFuncWithPanicHandling := func(ctx context.Context, pt1 PT1, pt2 PT2) (result ST, err error) {
 			// handle panic from user code
 			defer func() {
 				if r := recover(); r != nil {
@@ -152,37 +152,37 @@ func StepAfterBoth[JT, PT1, PT2, ST any](j *JobDefinition[JT], stepName string, 
 
 // AddStepWithStaticFunc is same as AddStep, but the stepFunc passed in shouldn't have receiver. (or you get shared state between job instances)
 func AddStepWithStaticFunc[JT, ST any](j *JobDefinition[JT], stepName string, stepFunc asynctask.AsyncFunc[ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	return AddStep(j, stepName, func(j *JT) asynctask.AsyncFunc[ST] { return stepFunc }, optionDecorators...)
+	return AddStep(j, stepName, func(j JT) asynctask.AsyncFunc[ST] { return stepFunc }, optionDecorators...)
 }
 
 // StepAfterWithStaticFunc is same as StepAfter, but the stepFunc passed in shouldn't have receiver. (or you get shared state between job instances)
 func StepAfterWithStaticFunc[JT, PT, ST any](j *JobDefinition[JT], stepName string, parentStep *StepDefinition[PT], stepFunc asynctask.ContinueFunc[PT, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	return StepAfter(j, stepName, parentStep, func(j *JT) asynctask.ContinueFunc[PT, ST] { return stepFunc }, optionDecorators...)
+	return StepAfter(j, stepName, parentStep, func(j JT) asynctask.ContinueFunc[PT, ST] { return stepFunc }, optionDecorators...)
 }
 
 // StepAfterBothWithStaticFunc is same as StepAfterBoth, but the stepFunc passed in shouldn't have receiver. (or you get shared state between job instances)
 func StepAfterBothWithStaticFunc[JT, PT1, PT2, ST any](j *JobDefinition[JT], stepName string, parentStep1 *StepDefinition[PT1], parentStep2 *StepDefinition[PT2], stepFunc asynctask.AfterBothFunc[PT1, PT2, ST], optionDecorators ...ExecutionOptionPreparer) (*StepDefinition[ST], error) {
-	return StepAfterBoth(j, stepName, parentStep1, parentStep2, func(j *JT) asynctask.AfterBothFunc[PT1, PT2, ST] { return stepFunc }, optionDecorators...)
+	return StepAfterBoth(j, stepName, parentStep1, parentStep2, func(j JT) asynctask.AfterBothFunc[PT1, PT2, ST] { return stepFunc }, optionDecorators...)
 }
 
-func instrumentedAddStep[T any](stepInstance *StepInstance[T], precedingTasks []asynctask.Waitable, stepFunc func(ctx context.Context) (*T, error)) func(ctx context.Context) (*T, error) {
-	return func(ctx context.Context) (*T, error) {
+func instrumentedAddStep[T any](stepInstance *StepInstance[T], precedingTasks []asynctask.Waitable, stepFunc func(ctx context.Context) (T, error)) func(ctx context.Context) (T, error) {
+	return func(ctx context.Context) (T, error) {
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
 			/* this only work on ExecuteAfter (have precedent step, but not taking input from it)
 			   asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
 			   we need to be consistent on before we do any state change or error handling. */
-			return nil, err
+			return *new(T), err
 		}
 
 		stepInstance.executionData.StartTime = time.Now()
 		stepInstance.state = StepStateRunning
 		ctx = stepInstance.EnrichContext(ctx)
 
-		var result *T
+		var result T
 		var err error
 		if stepInstance.Definition.executionOptions.RetryPolicy != nil {
 			stepInstance.executionData.Retried = &RetryReport{}
-			result, err = newRetryer(stepInstance.Definition.executionOptions.RetryPolicy, stepInstance.executionData.Retried, func() (*T, error) { return stepFunc(ctx) }).Run()
+			result, err = newRetryer(stepInstance.Definition.executionOptions.RetryPolicy, stepInstance.executionData.Retried, func() (T, error) { return stepFunc(ctx) }).Run()
 		} else {
 			result, err = stepFunc(ctx)
 		}
@@ -191,7 +191,7 @@ func instrumentedAddStep[T any](stepInstance *StepInstance[T], precedingTasks []
 
 		if err != nil {
 			stepInstance.state = StepStateFailed
-			return nil, newStepError(ErrStepFailed, stepInstance, err)
+			return *new(T), newStepError(ErrStepFailed, stepInstance, err)
 		} else {
 			stepInstance.state = StepStateCompleted
 			return result, nil
@@ -199,24 +199,24 @@ func instrumentedAddStep[T any](stepInstance *StepInstance[T], precedingTasks []
 	}
 }
 
-func instrumentedStepAfter[T, S any](stepInstance *StepInstance[S], precedingTasks []asynctask.Waitable, stepFunc func(ctx context.Context, t *T) (*S, error)) func(ctx context.Context, t *T) (*S, error) {
-	return func(ctx context.Context, t *T) (*S, error) {
+func instrumentedStepAfter[T, S any](stepInstance *StepInstance[S], precedingTasks []asynctask.Waitable, stepFunc func(ctx context.Context, t T) (S, error)) func(ctx context.Context, t T) (S, error) {
+	return func(ctx context.Context, t T) (S, error) {
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
 			/* this only work on ExecuteAfter (have precedent step, but not taking input from it)
 			   asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
 			   we need to be consistent on before we do any state change or error handling. */
-			return nil, err
+			return *new(S), err
 		}
 
 		stepInstance.executionData.StartTime = time.Now()
 		stepInstance.state = StepStateRunning
 		ctx = stepInstance.EnrichContext(ctx)
 
-		var result *S
+		var result S
 		var err error
 		if stepInstance.Definition.executionOptions.RetryPolicy != nil {
 			stepInstance.executionData.Retried = &RetryReport{}
-			result, err = newRetryer(stepInstance.Definition.executionOptions.RetryPolicy, stepInstance.executionData.Retried, func() (*S, error) { return stepFunc(ctx, t) }).Run()
+			result, err = newRetryer(stepInstance.Definition.executionOptions.RetryPolicy, stepInstance.executionData.Retried, func() (S, error) { return stepFunc(ctx, t) }).Run()
 		} else {
 			result, err = stepFunc(ctx, t)
 		}
@@ -225,7 +225,7 @@ func instrumentedStepAfter[T, S any](stepInstance *StepInstance[S], precedingTas
 
 		if err != nil {
 			stepInstance.state = StepStateFailed
-			return nil, newStepError(ErrStepFailed, stepInstance, err)
+			return *new(S), newStepError(ErrStepFailed, stepInstance, err)
 		} else {
 			stepInstance.state = StepStateCompleted
 			return result, nil
@@ -233,25 +233,25 @@ func instrumentedStepAfter[T, S any](stepInstance *StepInstance[S], precedingTas
 	}
 }
 
-func instrumentedStepAfterBoth[T, S, R any](stepInstance *StepInstance[R], precedingTasks []asynctask.Waitable, stepFunc func(ctx context.Context, t *T, s *S) (*R, error)) func(ctx context.Context, t *T, s *S) (*R, error) {
-	return func(ctx context.Context, t *T, s *S) (*R, error) {
+func instrumentedStepAfterBoth[T, S, R any](stepInstance *StepInstance[R], precedingTasks []asynctask.Waitable, stepFunc func(ctx context.Context, t T, s S) (R, error)) func(ctx context.Context, t T, s S) (R, error) {
+	return func(ctx context.Context, t T, s S) (R, error) {
 
 		if err := asynctask.WaitAll(ctx, &asynctask.WaitAllOptions{}, precedingTasks...); err != nil {
 			/* this only work on ExecuteAfter (have precedent step, but not taking input from it)
 			   asynctask.ContinueWith and asynctask.AfterBoth won't invoke instrumentedFunc if any of the preceding task failed.
 			   we need to be consistent on before we do any state change or error handling. */
-			return nil, err
+			return *new(R), err
 		}
 
 		stepInstance.executionData.StartTime = time.Now()
 		stepInstance.state = StepStateRunning
 		ctx = stepInstance.EnrichContext(ctx)
 
-		var result *R
+		var result R
 		var err error
 		if stepInstance.Definition.executionOptions.RetryPolicy != nil {
 			stepInstance.executionData.Retried = &RetryReport{}
-			result, err = newRetryer(stepInstance.Definition.executionOptions.RetryPolicy, stepInstance.executionData.Retried, func() (*R, error) { return stepFunc(ctx, t, s) }).Run()
+			result, err = newRetryer(stepInstance.Definition.executionOptions.RetryPolicy, stepInstance.executionData.Retried, func() (R, error) { return stepFunc(ctx, t, s) }).Run()
 		} else {
 			result, err = stepFunc(ctx, t, s)
 		}
@@ -260,7 +260,7 @@ func instrumentedStepAfterBoth[T, S, R any](stepInstance *StepInstance[R], prece
 
 		if err != nil {
 			stepInstance.state = StepStateFailed
-			return nil, newStepError(ErrStepFailed, stepInstance, err)
+			return *new(R), newStepError(ErrStepFailed, stepInstance, err)
 		} else {
 			stepInstance.state = StepStateCompleted
 			return result, nil
@@ -309,11 +309,12 @@ func getDependsOnStepInstances(stepD StepDefinitionMeta, ji JobInstanceMeta) ([]
 }
 
 // this is most vulunerable point of this library
-//   we have strongTyped steps
-//   we can create stronglyTyped stepInstance from stronglyTyped stepDefinition
-//   We cannot store strongTyped stepInstance and passing it to next step
-//   now we need this typeAssertion, to beable to link steps
-//   in theory, we have all the info, we construct the instance, if it panics, we should fix it.
+//
+//	we have strongTyped steps
+//	we can create stronglyTyped stepInstance from stronglyTyped stepDefinition
+//	We cannot store strongTyped stepInstance and passing it to next step
+//	now we need this typeAssertion, to beable to link steps
+//	in theory, we have all the info, we construct the instance, if it panics, we should fix it.
 func getStrongTypedStepInstance[T any](stepD *StepDefinition[T], ji JobInstanceMeta) *StepInstance[T] {
 	stepInstanceMeta, ok := ji.GetStepInstance(stepD.GetName())
 	if !ok {

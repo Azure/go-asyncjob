@@ -44,14 +44,14 @@ func WithSequentialExecution() JobOptionPreparer {
 // JobInstance is the instance of a jobDefinition
 type JobInstance[T any] struct {
 	jobOptions *JobExecutionOptions
-	input      *T
+	input      T
 	Definition *JobDefinition[T]
 	rootStep   *StepInstance[T]
 	steps      map[string]StepInstanceMeta
 	stepsDag   *graph.Graph[StepInstanceMeta]
 }
 
-func newJobInstance[T any](jd *JobDefinition[T], input *T, jobInstanceOptions ...JobOptionPreparer) *JobInstance[T] {
+func newJobInstance[T any](jd *JobDefinition[T], input T, jobInstanceOptions ...JobOptionPreparer) *JobInstance[T] {
 	ji := &JobInstance[T]{
 		Definition: jd,
 		input:      input,
