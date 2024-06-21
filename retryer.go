@@ -18,7 +18,7 @@ func newRetryer[T any](policy RetryPolicy, report *RetryReport, toRetry func() (
 func (r retryer[T]) Run() (T, error) {
 	t, err := r.function()
 	for err != nil {
-		if shouldRetry, duration := r.retryPolicy.ShouldRetry(err); shouldRetry {
+		if shouldRetry, duration := r.retryPolicy.ShouldRetry(err, r.retryReport.Count); shouldRetry {
 			r.retryReport.Count++
 			time.Sleep(duration)
 			t, err = r.function()

@@ -191,7 +191,9 @@ func (sql *SqlSummaryJobLib) GetConnection(ctx context.Context, serverName *stri
 	sql.Logging(ctx, "GetConnection")
 	if sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection["GetConnection"]; ok {
-			return nil, errFunc()
+			if err := errFunc(); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return &SqlConnection{ServerName: *serverName}, nil
@@ -207,7 +209,9 @@ func (sql *SqlSummaryJobLib) GetTableClient(ctx context.Context, conn *SqlConnec
 	}
 	if sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection[injectionKey]; ok {
-			return nil, errFunc()
+			if err := errFunc(); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return &SqlTableClient{ServerName: conn.ServerName, TableName: *tableName}, nil
@@ -223,7 +227,9 @@ func (sql *SqlSummaryJobLib) CheckAuth(ctx context.Context) error {
 	}
 	if sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection[injectionKey]; ok {
-			return errFunc()
+			if err := errFunc(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -239,7 +245,9 @@ func (sql *SqlSummaryJobLib) ExecuteQuery(ctx context.Context, tableClient *SqlT
 	}
 	if sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection[injectionKey]; ok {
-			return nil, errFunc()
+			if err := errFunc(); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -264,7 +272,9 @@ func (sql *SqlSummaryJobLib) SummarizeQueryResult(ctx context.Context, result1 *
 	}
 	if sql.Params.ErrorInjection != nil {
 		if errFunc, ok := sql.Params.ErrorInjection[injectionKey]; ok {
-			return nil, errFunc()
+			if err := errFunc(); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return &SummarizedResult{QueryResult1: result1.Data, QueryResult2: result2.Data}, nil
@@ -299,20 +309,19 @@ func EnrichContext(ctx context.Context, instanceMeta asyncjob.StepInstanceMeta) 
 
 type linearRetryPolicy struct {
 	sleepInterval time.Duration
-	maxRetryCount int
-	tried         int
+	maxRetryCount uint
 }
 
-func newLinearRetryPolicy(sleepInterval time.Duration, maxRetryCount int) asyncjob.RetryPolicy {
+func newLinearRetryPolicy(sleepInterval time.Duration, maxRetryCount uint) asyncjob.RetryPolicy {
 	return &linearRetryPolicy{
 		sleepInterval: sleepInterval,
 		maxRetryCount: maxRetryCount,
 	}
 }
 
-func (lrp *linearRetryPolicy) ShouldRetry(error) (bool, time.Duration) {
-	if lrp.tried < lrp.maxRetryCount {
-		lrp.tried++
+func (lrp *linearRetryPolicy) ShouldRetry(_ error, tried uint) (bool, time.Duration) {
+	if tried < lrp.maxRetryCount {
+		tried++
 		return true, lrp.sleepInterval
 	}
 
