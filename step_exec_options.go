@@ -18,7 +18,7 @@ type StepErrorPolicy struct{}
 
 type RetryPolicy interface {
 	// ShouldRetry returns true if the error should be retried, and the duration to wait before retrying.
-	// The int parameter is the retry count
+	// The int parameter is the retry count, first execution fail will invoke this with 0.
 	ShouldRetry(error, uint) (bool, time.Duration)
 }
 
