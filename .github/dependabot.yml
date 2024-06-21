@@ -12,6 +12,7 @@ updates:
     groups:
       gomod:
         applies-to: version-updates
+        dependency-type: production
 
   - package-ecosystem: github-actions
     directory: /
@@ -20,6 +21,7 @@ updates:
     groups:
       github-actions:
         applies-to: version-updates
+        dependency-type: production
 
   - package-ecosystem: gomod
     directory: /graph
@@ -28,3 +30,4 @@ updates:
     groups:
       gomod:
         applies-to: version-updates
+        dependency-type: production
