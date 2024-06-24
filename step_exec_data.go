@@ -13,5 +13,5 @@ type StepExecutionData struct {
 
 // RetryReport would record the retry count (could extend to include each retry duration, ...)
 type RetryReport struct {
-	Count int
+	Count uint
 }

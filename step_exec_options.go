@@ -17,17 +17,21 @@ type StepExecutionOptions struct {
 type StepErrorPolicy struct{}
 
 type RetryPolicy interface {
-	ShouldRetry(error) (bool, time.Duration)
+	// ShouldRetry returns true if the error should be retried, and the duration to wait before retrying.
+	// The int parameter is the retry count, first execution fail will invoke this with 0.
+	ShouldRetry(error, uint) (bool, time.Duration)
 }
 
 // StepContextPolicy allows context enrichment before passing to step.
-//   With StepInstanceMeta you can access StepInstance, StepDefinition, JobInstance, JobDefinition.
+//
+//	With StepInstanceMeta you can access StepInstance, StepDefinition, JobInstance, JobDefinition.
 type StepContextPolicy func(context.Context, StepInstanceMeta) context.Context
 
 type ExecutionOptionPreparer func(*StepExecutionOptions) *StepExecutionOptions
 
 // Add precedence to a step.
-//   without taking input from it(use StepAfter/StepAfterBoth otherwise)
+//
+//	without taking input from it(use StepAfter/StepAfterBoth otherwise)
 func ExecuteAfter(step StepDefinitionMeta) ExecutionOptionPreparer {
 	return func(options *StepExecutionOptions) *StepExecutionOptions {
 		options.DependOn = append(options.DependOn, step.GetName())
