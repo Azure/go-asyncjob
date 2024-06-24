@@ -321,7 +321,6 @@ func newLinearRetryPolicy(sleepInterval time.Duration, maxRetryCount uint) async
 
 func (lrp *linearRetryPolicy) ShouldRetry(_ error, tried uint) (bool, time.Duration) {
 	if tried < lrp.maxRetryCount {
-		tried++
 		return true, lrp.sleepInterval
 	}
 
